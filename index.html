@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mathe-Tutor – Interaktive Demo</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --primary:#2563eb;
+      --primaryHover:#1d4ed8;
+      --danger:#dc2626;
+      --ok:#16a34a;
+      --shadow: 0 10px 25px rgba(0,0,0,.06);
+      --radius: 14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background:var(--bg);
+      color:var(--text);
+      line-height:1.4;
+    }
+    .wrap{max-width:980px;margin:38px auto;padding:0 18px}
+    h1{font-size:28px;margin:0 0 6px}
+    .sub{color:var(--muted);margin:0 0 18px}
+    .grid{display:grid;gap:16px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+    .row{display:grid;grid-template-columns:1fr;gap:12px}
+    @media (min-width:860px){
+      .row.two{grid-template-columns: 1.4fr .6fr}
+      .row.three{grid-template-columns: 1fr 1fr 1fr}
+    }
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="text"], select, textarea{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:14px;
+      outline:none;
+      background:#fff;
+    }
+    textarea{min-height:110px;resize:vertical}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    button{
+      border:0;
+      padding:10px 14px;
+      border-radius:12px;
+      background:var(--primary);
+      color:white;
+      font-weight:600;
+      cursor:pointer;
+    }
+    button:hover{background:var(--primaryHover)}
+    button.secondary{
+      background:#111827;
+    }
+    button.secondary:hover{background:#0b1220}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 10px;border:1px solid var(--border);border-radius:999px;
+      background:#fff;color:var(--muted);font-size:13px;
+    }
+    .mono{font-family:var(--mono)}
+    .qbox{
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fbfbfd;
+      padding:12px;
+      white-space:pre-wrap;
+      min-height:72px;
+    }
+    .status{font-weight:700}
+    .status.ok{color:var(--ok)}
+    .status.bad{color:var(--danger)}
+    details summary{cursor:pointer;color:var(--muted)}
+    pre{
+      margin:10px 0 0;
+      padding:12px;
+      background:#0b1220;
+      color:#d1d5db;
+      border-radius:12px;
+      overflow:auto;
+      font-family:var(--mono);
+      font-size:12px;
+    }
+    .hint{margin-top:8px;color:var(--muted);font-size:13px}
+    .topbar{
+      display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Mathe-Tutor – Interaktive Demo</h1>
+        <p class="sub">Schritt 1: Aufgabe holen · Schritt 2: Antwort schreiben · Schritt 3: Feedback ansehen</p>
+      </div>
+      <div class="pill">
+        <span>Route:</span>
+        <span class="mono">POST /chat</span>
+      </div>
+    </div>
+
+    <div class="grid">
+
+      <div class="card">
+        <div class="row two">
+          <div>
+            <label for="apiUrl">API-URL (dein API Gateway Endpoint)</label>
+            <input id="apiUrl" type="text" value="https://90gv8ggvod.execute-api.eu-north-1.amazonaws.com/chat" />
+            <div class="hint">Tipp: Wenn du nur die Basis-URL einträgst, hänge <span class="mono">/chat</span> am Ende an.</div>
+          </div>
+          <div>
+            <label for="topic">Thema (optional)</label>
+            <select id="topic">
+              <option value="">Zufällig</option>
+              <option value="komplexe_zahlen">Komplexe Zahlen</option>
+              <option value="vektoren">Vektoren</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row three" style="margin-top:10px;">
+          <div>
+            <label for="variant">Variante (optional)</label>
+            <select id="variant">
+              <option value="false">Original-Aufgabe</option>
+              <option value="true">Neue Zahlen (Variante)</option>
+            </select>
+          </div>
+          <div>
+            <label for="baseId">Basis-Aufgabe-ID (optional)</label>
+            <input id="baseId" type="text" placeholder="z. B. komplexe_zahlen:406" />
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <div class="btns" style="margin-top:0;">
+              <button id="btnNext" onclick="loadQuestion()">Neue Aufgabe</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+          <div>
+            <div class="pill"><span>Question-ID:</span> <span id="qid" class="mono">—</span></div>
+            <div class="pill" style="margin-left:8px;"><span>Topic:</span> <span id="qtopic" class="mono">—</span></div>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <label>Aufgabe</label>
+          <div id="question" class="qbox">Noch keine Aufgabe geladen.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <label for="answer">Deine Antwort</label>
+        <textarea id="answer" placeholder="Schreibe hier deine Antwort…"></textarea>
+        <div class="btns">
+          <button class="secondary" onclick="submitAnswer()">Antwort prüfen</button>
+          <button onclick="clearAll()" title="Antwort & Feedback löschen">Zurücksetzen</button>
+        </div>
+
+        <div style="margin-top:14px;">
+          <label>Feedback</label>
+          <div id="feedback" class="qbox">Noch kein Feedback.</div>
+          <div id="statusLine" class="hint"></div>
+        </div>
+
+        <details style="margin-top:12px;">
+          <summary>Debug: Roh-JSON anzeigen</summary>
+          <pre id="raw">—</pre>
+        </details>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  // Stores last question context required by your Lambda contract.
+  let lastQuestion = "";
+  let lastTopic = "";
+  let lastQuestionId = "";
+
+  function normalizeApiUrl(url){
+    url = (url || "").trim();
+    if(!url) return "";
+    // If user pasted base invoke URL, append /chat
+    if(!url.endsWith("/chat") && !url.includes("/chat?") && !url.match(/\/chat\b/)){
+      url = url.replace(/\/+$/, "") + "/chat";
+    }
+    return url;
+  }
+
+  function setRaw(obj){
+    document.getElementById("raw").textContent = JSON.stringify(obj, null, 2);
+  }
+
+  function setStatus(text, ok=null){
+    const el = document.getElementById("statusLine");
+    if(ok === true) el.innerHTML = '<span class="status ok">OK:</span> ' + text;
+    else if(ok === false) el.innerHTML = '<span class="status bad">Fehler:</span> ' + text;
+    else el.textContent = text || "";
+  }
+
+  async function loadQuestion(){
+    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+    const topic = document.getElementById("topic").value || undefined;
+    const variant = document.getElementById("variant").value === "true";
+    const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
+
+    if(!api){
+      setStatus("Bitte eine API-URL eintragen.", false);
+      return;
+    }
+
+    setStatus("Lade Aufgabe…", null);
+
+    const payload = { mode: "next_question", variant: variant };
+    if(topic) payload.topic = topic;
+    if(baseId) payload.base_question_id = baseId;
+
+    try{
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      setRaw(data);
+
+      if(!res.ok){
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), false);
+        return;
+      }
+
+      lastQuestion = data.rendered_question || "";
+      lastTopic = data.topic || topic || "";
+      lastQuestionId = data.question_id || "";
+
+      document.getElementById("question").textContent = lastQuestion || "—";
+      document.getElementById("qid").textContent = lastQuestionId || "—";
+      document.getElementById("qtopic").textContent = lastTopic || "—";
+      document.getElementById("feedback").textContent = "Noch kein Feedback.";
+      document.getElementById("answer").value = "";
+
+      setStatus("Aufgabe geladen.", true);
+    }catch(e){
+      setStatus(e && e.message ? e.message : String(e), false);
+    }
+  }
+
+  async function submitAnswer(){
+    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+    const answer = (document.getElementById("answer").value || "").trim();
+
+    if(!api){
+      setStatus("Bitte eine API-URL eintragen.", false);
+      return;
+    }
+    if(!lastQuestion){
+      setStatus("Bitte zuerst eine Aufgabe laden.", false);
+      return;
+    }
+    if(!answer){
+      setStatus("Bitte eine Antwort eingeben.", false);
+      return;
+    }
+
+    setStatus("Sende Antwort…", null);
+
+    const payload = {
+      mode: "submit_answer",
+      last_question: lastQuestion,
+      student_answer: answer,
+      topic: lastTopic || "unknown",
+      question_id: lastQuestionId
+    };
+
+    try{
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      setRaw(data);
+
+      if(!res.ok){
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), false);
+        return;
+      }
+
+      const correct = !!data.correct;
+      const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
+      const head = correct ? "✅ Richtig" : "❌ Nicht ganz";
+      const body = [
+        data.tutor_feedback ? data.tutor_feedback : "",
+        hints.length ? "\nHinweise:\n- " + hints.join("\n- ") : ""
+      ].filter(Boolean).join("\n\n");
+
+      document.getElementById("feedback").textContent = head + (body ? ("\n\n" + body) : "");
+      setStatus("Feedback erhalten.", true);
+
+    }catch(e){
+      setStatus(e && e.message ? e.message : String(e), false);
+    }
+  }
+
+  function clearAll(){
+    document.getElementById("answer").value = "";
+    document.getElementById("feedback").textContent = "Noch kein Feedback.";
+    setStatus("", null);
+  }
+</script>
+</body>
+</html>
