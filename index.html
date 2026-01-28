@@ -3,20 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mathe-Tutor – Interaktive Demo</title>
+  <title>Mathe-Tutor – Chat UI</title>
   <style>
     :root{
-      --bg:#f6f7fb;
-      --card:#ffffff;
-      --text:#111827;
-      --muted:#6b7280;
-      --border:#e5e7eb;
-      --primary:#2563eb;
-      --primaryHover:#1d4ed8;
-      --danger:#dc2626;
-      --ok:#16a34a;
-      --shadow: 0 10px 25px rgba(0,0,0,.06);
-      --radius: 14px;
+      --bg:#0b1020;
+      --panel:#0f172a;
+      --panel2:#111c3a;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --border:rgba(148,163,184,.18);
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius:16px;
+
+      --bot:#111c3a;
+      --user:#2563eb;
+      --user2:#1d4ed8;
+
+      --ok:#22c55e;
+      --bad:#ef4444;
+      --warn:#f59e0b;
+
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
@@ -24,107 +30,278 @@
     body{
       margin:0;
       font-family:var(--sans);
-      background:var(--bg);
+      background: radial-gradient(1200px 800px at 20% -10%, rgba(37,99,235,.25), transparent 60%),
+                  radial-gradient(900px 600px at 90% 10%, rgba(34,197,94,.12), transparent 55%),
+                  var(--bg);
       color:var(--text);
-      line-height:1.4;
     }
-    .wrap{max-width:980px;margin:38px auto;padding:0 18px}
-    h1{font-size:28px;margin:0 0 6px}
-    .sub{color:var(--muted);margin:0 0 18px}
-    .grid{display:grid;gap:16px}
-    .card{
-      background:var(--card);
+    .app{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 16px 18px;
+      display:flex;
+      flex-direction:column;
+      min-height: 100vh;
+      gap: 12px;
+    }
+
+    /* Top bar */
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 14px;
       border:1px solid var(--border);
-      border-radius:var(--radius);
-      padding:16px;
-      box-shadow:var(--shadow);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.75);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
     }
-    .row{display:grid;grid-template-columns:1fr;gap:12px}
-    @media (min-width:860px){
-      .row.two{grid-template-columns: 1.4fr .6fr}
-      .row.three{grid-template-columns: 1fr 1fr 1fr}
+    .title{
+      display:flex; flex-direction:column; gap:2px;
     }
-    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
-    input[type="text"], select, textarea{
-      width:100%;
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:10px 12px;
-      font-size:14px;
-      outline:none;
-      background:#fff;
+    .title h1{
+      font-size:16px; margin:0; letter-spacing:.2px;
     }
-    textarea{min-height:110px;resize:vertical}
-    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
-    button{
-      border:0;
-      padding:10px 14px;
-      border-radius:12px;
-      background:var(--primary);
-      color:white;
-      font-weight:600;
-      cursor:pointer;
+    .title p{
+      margin:0; font-size:12px; color:var(--muted);
     }
-    button:hover{background:var(--primaryHover)}
-    button.secondary{
-      background:#111827;
-    }
-    button.secondary:hover{background:#0b1220}
     .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:8px 10px;border:1px solid var(--border);border-radius:999px;
-      background:#fff;color:var(--muted);font-size:13px;
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      background: rgba(17,28,58,.55);
     }
     .mono{font-family:var(--mono)}
-    .qbox{
+    .btn{
+      border:0;
+      border-radius: 12px;
+      padding:10px 12px;
+      font-weight:700;
+      cursor:pointer;
+      color:white;
+      background: linear-gradient(135deg, var(--user), var(--user2));
+    }
+    .btn:hover{filter:brightness(1.07)}
+    .btn.secondary{
+      background: rgba(148,163,184,.12);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .btn.secondary:hover{background: rgba(148,163,184,.18)}
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    /* Settings */
+    .settings{
       border:1px solid var(--border);
-      border-radius:12px;
-      background:#fbfbfd;
-      padding:12px;
-      white-space:pre-wrap;
-      min-height:72px;
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.60);
+      box-shadow: var(--shadow);
+      overflow:hidden;
     }
-    .status{font-weight:700}
-    .status.ok{color:var(--ok)}
-    .status.bad{color:var(--danger)}
-    details summary{cursor:pointer;color:var(--muted)}
-    pre{
-      margin:10px 0 0;
-      padding:12px;
-      background:#0b1220;
-      color:#d1d5db;
-      border-radius:12px;
-      overflow:auto;
-      font-family:var(--mono);
+    .settingsHead{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 14px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .settingsHead .left{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .settingsHead .left .hint{
+      font-size:12px; color:var(--muted);
+    }
+    .settingsBody{
+      padding: 0 14px 14px;
+      display:none;
+      gap: 12px;
+    }
+    .settings.open .settingsBody{display:grid}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media(min-width:860px){
+      .grid.cols2{grid-template-columns: 1.5fr .5fr}
+      .grid.cols3{grid-template-columns: 1fr 1fr 1fr}
+    }
+    label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
+    input[type="text"], select{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline:none;
+      background: rgba(17,28,58,.55);
+      color: var(--text);
+    }
+    input[type="text"]::placeholder{color: rgba(148,163,184,.6)}
+
+    /* Chat */
+    .chat{
+      flex:1;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.55);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .chatHeader{
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid var(--border);
+      background: rgba(17,28,58,.45);
+    }
+    .chatHeader .meta{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .badge{
       font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color: var(--muted);
+      background: rgba(17,28,58,.35);
     }
-    .hint{margin-top:8px;color:var(--muted);font-size:13px}
-    .topbar{
-      display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap
+
+    .messages{
+      padding: 14px;
+      overflow:auto;
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .msgRow{display:flex}
+    .msgRow.user{justify-content:flex-end}
+    .bubble{
+      max-width: 82ch;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+      line-height: 1.45;
+      box-shadow: 0 10px 18px rgba(0,0,0,.18);
+    }
+    .bubble.bot{
+      background: rgba(17,28,58,.6);
+      color: var(--text);
+      border-top-left-radius: 10px;
+    }
+    .bubble.user{
+      background: linear-gradient(135deg, rgba(37,99,235,.92), rgba(29,78,216,.92));
+      color: white;
+      border: 1px solid rgba(255,255,255,.14);
+      border-top-right-radius: 10px;
+    }
+    .bubble .small{
+      display:block;
+      margin-top:8px;
+      font-size:12px;
+      color: rgba(148,163,184,.95);
+    }
+    .statusLine{
+      font-size:12px;
+      color: var(--muted);
+      padding: 0 14px 12px;
+    }
+    .statusDot{
+      display:inline-block;
+      width:8px;height:8px;border-radius:99px;margin-right:8px;
+      background: rgba(148,163,184,.6);
+      vertical-align:middle;
+    }
+    .statusDot.ok{background: var(--ok)}
+    .statusDot.bad{background: var(--bad)}
+    .statusDot.warn{background: var(--warn)}
+
+    /* Composer */
+    .composer{
+      border-top:1px solid var(--border);
+      background: rgba(17,28,58,.45);
+      padding: 10px;
+      display:flex;
+      gap: 10px;
+      align-items:flex-end;
+    }
+    textarea{
+      width:100%;
+      min-height: 44px;
+      max-height: 180px;
+      resize: vertical;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      outline:none;
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    details{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.55);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    details summary{
+      cursor:pointer;
+      padding: 12px 14px;
+      color: var(--muted);
+      user-select:none;
+    }
+    pre{
+      margin:0;
+      padding: 12px 14px;
+      overflow:auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      background: rgba(2,6,23,.7);
+      color: #cbd5e1;
+      border-top:1px solid var(--border);
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div>
-        <h1>Mathe-Tutor – Interaktive Demo</h1>
-        <p class="sub">Schritt 1: Aufgabe holen · Schritt 2: Antwort schreiben · Schritt 3: Feedback ansehen</p>
+  <div class="app">
+
+    <div class="top">
+      <div class="title">
+        <h1>Mathe-Tutor</h1>
+        <p>Chat-UI: Aufgabe holen → Antwort senden → Feedback erhalten</p>
       </div>
-      <div class="pill">
-        <span>Route:</span>
-        <span class="mono">POST /chat</span>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span class="pill"><span>Route:</span> <span class="mono">POST /chat</span></span>
+        <button class="btn secondary" id="btnNew" onclick="loadQuestion()">Neue Aufgabe</button>
       </div>
     </div>
 
-    <div class="grid">
-
-      <div class="card">
-        <div class="row two">
+    <div class="settings" id="settings">
+      <div class="settingsHead" onclick="toggleSettings()">
+        <div class="left">
+          <div style="font-weight:700;">Einstellungen</div>
+          <div class="hint">API-URL, Thema, Variante, Basis-ID</div>
+        </div>
+        <div class="pill"><span class="mono" id="settingsState">geschlossen</span></div>
+      </div>
+      <div class="settingsBody">
+        <div class="grid cols2">
           <div>
-            <label for="apiUrl">API-URL (dein API Gateway Endpoint)</label>
+            <label for="apiUrl">API-URL (API Gateway Endpoint)</label>
             <input id="apiUrl" type="text" value="https://90gv8ggvod.execute-api.eu-north-1.amazonaws.com/chat" />
-            <div class="hint">Tipp: Wenn du nur die Basis-URL einträgst, hänge <span class="mono">/chat</span> am Ende an.</div>
           </div>
           <div>
             <label for="topic">Thema (optional)</label>
@@ -136,64 +313,58 @@
           </div>
         </div>
 
-        <div class="row three" style="margin-top:10px;">
+        <div class="grid cols3">
           <div>
-            <label for="variant">Variante (optional)</label>
+            <label for="variant">Variante</label>
             <select id="variant">
-              <option value="false">Original-Aufgabe</option>
-              <option value="true">Neue Zahlen (Variante)</option>
+              <option value="false">Original</option>
+              <option value="true">Neue Zahlen</option>
             </select>
           </div>
           <div>
             <label for="baseId">Basis-Aufgabe-ID (optional)</label>
-            <input id="baseId" type="text" placeholder="z. B. komplexe_zahlen:406" />
+            <input id="baseId" type="text" placeholder="z. B. vektoren:12" />
           </div>
-          <div style="display:flex;align-items:flex-end;">
-            <div class="btns" style="margin-top:0;">
-              <button id="btnNext" onclick="loadQuestion()">Neue Aufgabe</button>
-            </div>
+          <div style="display:flex; gap:10px; align-items:flex-end;">
+            <button class="btn" style="width:100%;" onclick="loadQuestion()">Aufgabe holen</button>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
-          <div>
-            <div class="pill"><span>Question-ID:</span> <span id="qid" class="mono">—</span></div>
-            <div class="pill" style="margin-left:8px;"><span>Topic:</span> <span id="qtopic" class="mono">—</span></div>
-          </div>
-        </div>
-        <div style="margin-top:12px;">
-          <label>Aufgabe</label>
-          <div id="question" class="qbox">Noch keine Aufgabe geladen.</div>
+        <div class="statusLine" id="settingsHint">
+          Tipp: Wenn du nur die Basis-URL einträgst, wird automatisch <span class="mono">/chat</span> angehängt.
         </div>
       </div>
-
-      <div class="card">
-        <label for="answer">Deine Antwort</label>
-        <textarea id="answer" placeholder="Schreibe hier deine Antwort…"></textarea>
-        <div class="btns">
-          <button class="secondary" onclick="submitAnswer()">Antwort prüfen</button>
-          <button onclick="clearAll()" title="Antwort & Feedback löschen">Zurücksetzen</button>
-        </div>
-
-        <div style="margin-top:14px;">
-          <label>Feedback</label>
-          <div id="feedback" class="qbox">Noch kein Feedback.</div>
-          <div id="statusLine" class="hint"></div>
-        </div>
-
-        <details style="margin-top:12px;">
-          <summary>Debug: Roh-JSON anzeigen</summary>
-          <pre id="raw">—</pre>
-        </details>
-      </div>
-
     </div>
+
+    <div class="chat">
+      <div class="chatHeader">
+        <div class="meta">
+          <span class="badge">Question-ID: <span class="mono" id="qid">—</span></span>
+          <span class="badge">Topic: <span class="mono" id="qtopic">—</span></span>
+        </div>
+        <div class="meta">
+          <span class="badge" id="conn">bereit</span>
+        </div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+      <div class="statusLine"><span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span></div>
+
+      <div class="composer">
+        <textarea id="answer" placeholder="Schreibe deine Antwort… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
+        <button class="btn" id="btnSend" onclick="submitAnswer()">Senden</button>
+        <button class="btn secondary" onclick="resetChat()" title="Antwort/Chat zurücksetzen">Reset</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>Debug: Roh-JSON anzeigen</summary>
+      <pre id="raw">—</pre>
+    </details>
+
   </div>
 
 <script>
-  // Stores last question context required by your Lambda contract.
   let lastQuestion = "";
   let lastTopic = "";
   let lastQuestionId = "";
@@ -201,7 +372,6 @@
   function normalizeApiUrl(url){
     url = (url || "").trim();
     if(!url) return "";
-    // If user pasted base invoke URL, append /chat
     if(!url.endsWith("/chat") && !url.includes("/chat?") && !url.match(/\/chat\b/)){
       url = url.replace(/\/+$/, "") + "/chat";
     }
@@ -212,11 +382,44 @@
     document.getElementById("raw").textContent = JSON.stringify(obj, null, 2);
   }
 
-  function setStatus(text, ok=null){
-    const el = document.getElementById("statusLine");
-    if(ok === true) el.innerHTML = '<span class="status ok">OK:</span> ' + text;
-    else if(ok === false) el.innerHTML = '<span class="status bad">Fehler:</span> ' + text;
-    else el.textContent = text || "";
+  function setStatus(text, state=null){
+    const dot = document.getElementById("dot");
+    const line = document.getElementById("statusLine");
+    line.textContent = text || "";
+    dot.className = "statusDot";
+    if(state === "ok") dot.classList.add("ok");
+    else if(state === "bad") dot.classList.add("bad");
+    else if(state === "warn") dot.classList.add("warn");
+  }
+
+  function addMessage(role, text, small=null){
+    const wrap = document.createElement("div");
+    wrap.className = "msgRow " + (role === "user" ? "user" : "bot");
+    const b = document.createElement("div");
+    b.className = "bubble " + (role === "user" ? "user" : "bot");
+    b.textContent = text || "";
+    if(small){
+      const s = document.createElement("span");
+      s.className = "small";
+      s.textContent = small;
+      b.appendChild(s);
+    }
+    wrap.appendChild(b);
+    document.getElementById("messages").appendChild(wrap);
+    const sc = document.getElementById("messages");
+    sc.scrollTop = sc.scrollHeight;
+  }
+
+  function toggleSettings(){
+    const el = document.getElementById("settings");
+    el.classList.toggle("open");
+    document.getElementById("settingsState").textContent = el.classList.contains("open") ? "offen" : "geschlossen";
+  }
+
+  function setBusy(busy){
+    document.getElementById("btnSend").disabled = busy;
+    document.getElementById("btnNew").disabled = busy;
+    document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
   async function loadQuestion(){
@@ -226,10 +429,11 @@
     const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
 
     if(!api){
-      setStatus("Bitte eine API-URL eintragen.", false);
+      setStatus("Bitte eine API-URL eintragen.", "bad");
       return;
     }
 
+    setBusy(true);
     setStatus("Lade Aufgabe…", null);
 
     const payload = { mode: "next_question", variant: variant };
@@ -247,7 +451,7 @@
       setRaw(data);
 
       if(!res.ok){
-        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), false);
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
         return;
       }
 
@@ -255,15 +459,15 @@
       lastTopic = data.topic || topic || "";
       lastQuestionId = data.question_id || "";
 
-      document.getElementById("question").textContent = lastQuestion || "—";
       document.getElementById("qid").textContent = lastQuestionId || "—";
       document.getElementById("qtopic").textContent = lastTopic || "—";
-      document.getElementById("feedback").textContent = "Noch kein Feedback.";
-      document.getElementById("answer").value = "";
 
-      setStatus("Aufgabe geladen.", true);
+      addMessage("bot", lastQuestion || "—", `ID: ${lastQuestionId || "—"} · Topic: ${lastTopic || "—"}${data.used_variant ? " · Variante" : ""}`);
+      setStatus("Aufgabe geladen. Antworte unten im Feld.", "ok");
     }catch(e){
-      setStatus(e && e.message ? e.message : String(e), false);
+      setStatus(e && e.message ? e.message : String(e), "bad");
+    }finally{
+      setBusy(false);
     }
   }
 
@@ -272,19 +476,23 @@
     const answer = (document.getElementById("answer").value || "").trim();
 
     if(!api){
-      setStatus("Bitte eine API-URL eintragen.", false);
+      setStatus("Bitte eine API-URL eintragen.", "bad");
       return;
     }
     if(!lastQuestion){
-      setStatus("Bitte zuerst eine Aufgabe laden.", false);
+      setStatus("Bitte zuerst eine Aufgabe laden.", "warn");
       return;
     }
     if(!answer){
-      setStatus("Bitte eine Antwort eingeben.", false);
+      setStatus("Bitte eine Antwort eingeben.", "warn");
       return;
     }
 
+    setBusy(true);
     setStatus("Sende Antwort…", null);
+
+    addMessage("user", answer);
+    document.getElementById("answer").value = "";
 
     const payload = {
       mode: "submit_answer",
@@ -305,31 +513,830 @@
       setRaw(data);
 
       if(!res.ok){
-        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), false);
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+        addMessage("bot", "Da ist etwas schiefgelaufen.", (data && data.error) ? data.error : ("HTTP " + res.status));
         return;
       }
 
       const correct = !!data.correct;
       const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
-      const head = correct ? "✅ Richtig" : "❌ Nicht ganz";
-      const body = [
-        data.tutor_feedback ? data.tutor_feedback : "",
-        hints.length ? "\nHinweise:\n- " + hints.join("\n- ") : ""
-      ].filter(Boolean).join("\n\n");
+      const head = correct ? "Richtig." : "Nicht ganz.";
+      const bodyParts = [];
+      if(data.tutor_feedback) bodyParts.push(data.tutor_feedback);
+      if(hints.length){
+        bodyParts.push("Hinweise:\n- " + hints.join("\n- "));
+      }
 
-      document.getElementById("feedback").textContent = head + (body ? ("\n\n" + body) : "");
-      setStatus("Feedback erhalten.", true);
-
+      addMessage("bot", head + (bodyParts.length ? ("\n\n" + bodyParts.join("\n\n")) : ""), correct ? "Status: korrekt" : "Status: falsch");
+      setStatus("Feedback erhalten.", "ok");
     }catch(e){
-      setStatus(e && e.message ? e.message : String(e), false);
+      setStatus(e && e.message ? e.message : String(e), "bad");
+      addMessage("bot", "Netzwerkfehler beim Senden.", e && e.message ? e.message : String(e));
+    }finally{
+      setBusy(false);
     }
   }
 
-  function clearAll(){
+  function resetChat(){
+    lastQuestion = "";
+    lastTopic = "";
+    lastQuestionId = "";
+    document.getElementById("qid").textContent = "—";
+    document.getElementById("qtopic").textContent = "—";
+    document.getElementById("messages").innerHTML = "";
     document.getElementById("answer").value = "";
-    document.getElementById("feedback").textContent = "Noch kein Feedback.";
-    setStatus("", null);
+    setRaw("—");
+    setStatus("Zurückgesetzt. Hol dir eine neue Aufgabe.", null);
   }
+
+  // Enter to send, Shift+Enter newline
+  document.getElementById("answer").addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      submitAnswer();
+    }
+  });
+
+  // Seed initial bot message
+  addMessage("bot", "Hi! Klick auf „Neue Aufgabe“, wähle optional ein Thema, und sende dann deine Antwort.");
+  setStatus("Bereit.", null);
 </script>
+</body>
+</html>
+Wenn du als Nächstes noch “mehr wie ChatGPT” willst, sag kurz, was dir wichtiger ist:
+
+Streaming (Antwort erscheint Wort für Wort)
+
+Mehrere Chats / Verlauf speichern (LocalStorage)
+
+Markdown/LaTeX Rendering (für Mathe extrem sinnvoll)
+
+Ich kann dir dann die nächste Iteration entsprechend bauen.
+
+
+
+
+
+
+
+You said:
+punkt 3. ist sehr wichtig
+
+
+ChatGPT said:
+Alles klar – dann bauen wir Markdown + LaTeX-Rendering in die Chat-UI ein. Das ist der größte Quality-Jump für Mathe.
+
+Unten bekommst du konkrete Änderungen (inkl. CDN), die du in deine neue Chat-UI einfügst. Damit werden:
+
+Markdown (Listen, Fett, Code, Überschriften, Tabellen …) gerendert
+
+LaTeX gerendert via KaTeX mit Auto-Render
+
+Inline: $a^2+b^2=c^2$
+
+Block: $$\int_0^1 x^2 dx$$
+
+1) In <head>: KaTeX + Marked + DOMPurify einbinden
+Füge das oberhalb deines eigenen <style> oder danach ein (egal, nur innerhalb <head>):
+
+html
+Copy code
+<!-- KaTeX (LaTeX Rendering) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+<!-- Markdown + Sanitizer -->
+<script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min
+
+
+
+
+
+
+You said:
+füge punkt 3 hinzu und gebe mir einfach den ganzen ui code nochmal
+
+
+ChatGPT said:
+html
+Copy code
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mathe-Tutor – Chat UI</title>
+
+  <!-- KaTeX (LaTeX Rendering) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Markdown + Sanitizer -->
+  <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#0f172a;
+      --panel2:#111c3a;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --border:rgba(148,163,184,.18);
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius:16px;
+
+      --bot:#111c3a;
+      --user:#2563eb;
+      --user2:#1d4ed8;
+
+      --ok:#22c55e;
+      --bad:#ef4444;
+      --warn:#f59e0b;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background: radial-gradient(1200px 800px at 20% -10%, rgba(37,99,235,.25), transparent 60%),
+                  radial-gradient(900px 600px at 90% 10%, rgba(34,197,94,.12), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .app{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 16px 18px;
+      display:flex;
+      flex-direction:column;
+      min-height: 100vh;
+      gap: 12px;
+    }
+
+    /* Top bar */
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 14px;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.75);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+    .title{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .title h1{
+      font-size:16px; margin:0; letter-spacing:.2px;
+    }
+    .title p{
+      margin:0; font-size:12px; color:var(--muted);
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      background: rgba(17,28,58,.55);
+    }
+    .mono{font-family:var(--mono)}
+    .btn{
+      border:0;
+      border-radius: 12px;
+      padding:10px 12px;
+      font-weight:700;
+      cursor:pointer;
+      color:white;
+      background: linear-gradient(135deg, var(--user), var(--user2));
+    }
+    .btn:hover{filter:brightness(1.07)}
+    .btn.secondary{
+      background: rgba(148,163,184,.12);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    .btn.secondary:hover{background: rgba(148,163,184,.18)}
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    /* Settings */
+    .settings{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.60);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .settingsHead{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 14px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .settingsHead .left{
+      display:flex; flex-direction:column; gap:2px;
+    }
+    .settingsHead .left .hint{
+      font-size:12px; color:var(--muted);
+    }
+    .settingsBody{
+      padding: 0 14px 14px;
+      display:none;
+      gap: 12px;
+    }
+    .settings.open .settingsBody{display:grid}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media(min-width:860px){
+      .grid.cols2{grid-template-columns: 1.5fr .5fr}
+      .grid.cols3{grid-template-columns: 1fr 1fr 1fr}
+    }
+    label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
+    input[type="text"], select{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline:none;
+      background: rgba(17,28,58,.55);
+      color: var(--text);
+    }
+    input[type="text"]::placeholder{color: rgba(148,163,184,.6)}
+
+    /* Chat */
+    .chat{
+      flex:1;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.55);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .chatHeader{
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid var(--border);
+      background: rgba(17,28,58,.45);
+    }
+    .chatHeader .meta{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color: var(--muted);
+      background: rgba(17,28,58,.35);
+    }
+
+    .messages{
+      padding: 14px;
+      overflow:auto;
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .msgRow{display:flex}
+    .msgRow.user{justify-content:flex-end}
+    .bubble{
+      max-width: 82ch;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+      line-height: 1.45;
+      box-shadow: 0 10px 18px rgba(0,0,0,.18);
+    }
+    .bubble.bot{
+      background: rgba(17,28,58,.6);
+      color: var(--text);
+      border-top-left-radius: 10px;
+    }
+    .bubble.user{
+      background: linear-gradient(135deg, rgba(37,99,235,.92), rgba(29,78,216,.92));
+      color: white;
+      border: 1px solid rgba(255,255,255,.14);
+      border-top-right-radius: 10px;
+    }
+    .bubble .small{
+      display:block;
+      margin-top:8px;
+      font-size:12px;
+      color: rgba(148,163,184,.95);
+    }
+
+    /* Markdown rendering inside bubbles */
+    .bubble .md{white-space:normal}
+    .bubble .md p{margin:0 0 10px}
+    .bubble .md p:last-child{margin-bottom:0}
+    .bubble .md ul, .bubble .md ol{margin: 8px 0 8px 22px; padding:0}
+    .bubble .md li{margin: 4px 0}
+    .bubble .md code{
+      font-family: var(--mono);
+      font-size: 12px;
+      background: rgba(2,6,23,.55);
+      border: 1px solid rgba(148,163,184,.18);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    .bubble .md pre{
+      font-family: var(--mono);
+      font-size: 12px;
+      background: rgba(2,6,23,.7);
+      border: 1px solid rgba(148,163,184,.18);
+      padding: 12px;
+      border-radius: 12px;
+      overflow:auto;
+      margin: 10px 0;
+      color:#cbd5e1;
+    }
+    .bubble .md pre code{
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font-size: 12px;
+    }
+    .bubble .md blockquote{
+      margin: 10px 0;
+      padding: 8px 10px;
+      border-left: 3px solid rgba(148,163,184,.35);
+      background: rgba(148,163,184,.08);
+      border-radius: 10px;
+      color: rgba(229,231,235,.95);
+    }
+    .bubble .md table{
+      width:100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      overflow:hidden;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,.18);
+    }
+    .bubble .md th, .bubble .md td{
+      border-bottom: 1px solid rgba(148,163,184,.18);
+      padding: 8px 10px;
+      text-align:left;
+      vertical-align:top;
+    }
+    .bubble .md th{
+      background: rgba(148,163,184,.10);
+      color: rgba(229,231,235,.95);
+      font-weight: 700;
+    }
+
+    /* KaTeX tweaks */
+    .katex{font-size: 1.02em}
+    .katex-display{overflow:auto; padding: 6px 0}
+
+    .statusLine{
+      font-size:12px;
+      color: var(--muted);
+      padding: 0 14px 12px;
+    }
+    .statusDot{
+      display:inline-block;
+      width:8px;height:8px;border-radius:99px;margin-right:8px;
+      background: rgba(148,163,184,.6);
+      vertical-align:middle;
+    }
+    .statusDot.ok{background: var(--ok)}
+    .statusDot.bad{background: var(--bad)}
+    .statusDot.warn{background: var(--warn)}
+
+    /* Composer */
+    .composer{
+      border-top:1px solid var(--border);
+      background: rgba(17,28,58,.45);
+      padding: 10px;
+      display:flex;
+      gap: 10px;
+      align-items:flex-end;
+    }
+    textarea{
+      width:100%;
+      min-height: 44px;
+      max-height: 180px;
+      resize: vertical;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      outline:none;
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    details{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.55);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    details summary{
+      cursor:pointer;
+      padding: 12px 14px;
+      color: var(--muted);
+      user-select:none;
+    }
+    pre#raw{
+      margin:0;
+      padding: 12px 14px;
+      overflow:auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      background: rgba(2,6,23,.7);
+      color: #cbd5e1;
+      border-top:1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <div class="top">
+      <div class="title">
+        <h1>Mathe-Tutor</h1>
+        <p>Chat-UI: Aufgabe holen → Antwort senden → Feedback erhalten</p>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span class="pill"><span>Route:</span> <span class="mono">POST /chat</span></span>
+        <button class="btn secondary" id="btnNew" onclick="loadQuestion()">Neue Aufgabe</button>
+      </div>
+    </div>
+
+    <div class="settings" id="settings">
+      <div class="settingsHead" onclick="toggleSettings()">
+        <div class="left">
+          <div style="font-weight:700;">Einstellungen</div>
+          <div class="hint">API-URL, Thema, Variante, Basis-ID</div>
+        </div>
+        <div class="pill"><span class="mono" id="settingsState">geschlossen</span></div>
+      </div>
+      <div class="settingsBody">
+        <div class="grid cols2">
+          <div>
+            <label for="apiUrl">API-URL (API Gateway Endpoint)</label>
+            <input id="apiUrl" type="text" value="https://90gv8ggvod.execute-api.eu-north-1.amazonaws.com/chat" />
+          </div>
+          <div>
+            <label for="topic">Thema (optional)</label>
+            <select id="topic">
+              <option value="">Zufällig</option>
+              <option value="komplexe_zahlen">Komplexe Zahlen</option>
+              <option value="vektoren">Vektoren</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid cols3">
+          <div>
+            <label for="variant">Variante</label>
+            <select id="variant">
+              <option value="false">Original</option>
+              <option value="true">Neue Zahlen</option>
+            </select>
+          </div>
+          <div>
+            <label for="baseId">Basis-Aufgabe-ID (optional)</label>
+            <input id="baseId" type="text" placeholder="z. B. vektoren:12" />
+          </div>
+          <div style="display:flex; gap:10px; align-items:flex-end;">
+            <button class="btn" style="width:100%;" onclick="loadQuestion()">Aufgabe holen</button>
+          </div>
+        </div>
+
+        <div class="statusLine" id="settingsHint">
+          Tipp: Wenn du nur die Basis-URL einträgst, wird automatisch <span class="mono">/chat</span> angehängt.
+        </div>
+      </div>
+    </div>
+
+    <div class="chat">
+      <div class="chatHeader">
+        <div class="meta">
+          <span class="badge">Question-ID: <span class="mono" id="qid">—</span></span>
+          <span class="badge">Topic: <span class="mono" id="qtopic">—</span></span>
+        </div>
+        <div class="meta">
+          <span class="badge" id="conn">bereit</span>
+        </div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+      <div class="statusLine"><span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span></div>
+
+      <div class="composer">
+        <textarea id="answer" placeholder="Schreibe deine Antwort… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
+        <button class="btn" id="btnSend" onclick="submitAnswer()">Senden</button>
+        <button class="btn secondary" onclick="resetChat()" title="Antwort/Chat zurücksetzen">Reset</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>Debug: Roh-JSON anzeigen</summary>
+      <pre id="raw">—</pre>
+    </details>
+
+  </div>
+
+<script>
+  // --------- State ----------
+  let lastQuestion = "";
+  let lastTopic = "";
+  let lastQuestionId = "";
+
+  // --------- Utils ----------
+  function normalizeApiUrl(url){
+    url = (url || "").trim();
+    if(!url) return "";
+    if(!url.endsWith("/chat") && !url.includes("/chat?") && !url.match(/\/chat\b/)){
+      url = url.replace(/\/+$/, "") + "/chat";
+    }
+    return url;
+  }
+
+  function setRaw(obj){
+    document.getElementById("raw").textContent = JSON.stringify(obj, null, 2);
+  }
+
+  function setStatus(text, state=null){
+    const dot = document.getElementById("dot");
+    const line = document.getElementById("statusLine");
+    line.textContent = text || "";
+    dot.className = "statusDot";
+    if(state === "ok") dot.classList.add("ok");
+    else if(state === "bad") dot.classList.add("bad");
+    else if(state === "warn") dot.classList.add("warn");
+  }
+
+  function toggleSettings(){
+    const el = document.getElementById("settings");
+    el.classList.toggle("open");
+    document.getElementById("settingsState").textContent = el.classList.contains("open") ? "offen" : "geschlossen";
+  }
+
+  function setBusy(busy){
+    document.getElementById("btnSend").disabled = busy;
+    document.getElementById("btnNew").disabled = busy;
+    document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
+  }
+
+  // Markdown -> HTML -> sanitize -> render LaTeX
+  function renderMarkdownAndLatex(containerEl, text){
+    const md = (text || "");
+
+    // Marked config (safe-ish; we sanitize anyway)
+    const html = window.marked.parse(md, {
+      breaks: true,
+      gfm: true
+    });
+
+    const clean = window.DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      // allow KaTeX generated tags/attrs
+      ADD_TAGS: ["span", "math", "annotation", "semantics", "mrow", "mi", "mo", "mn"],
+      ADD_ATTR: ["class", "style", "aria-hidden", "role"]
+    });
+
+    containerEl.innerHTML = clean;
+
+    // KaTeX auto-render
+    if(window.renderMathInElement){
+      window.renderMathInElement(containerEl, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false},
+          {left: "\\[", right: "\\]", display: true}
+        ],
+        throwOnError: false
+      });
+    }
+  }
+
+  function addMessage(role, text, small=null){
+    const wrap = document.createElement("div");
+    wrap.className = "msgRow " + (role === "user" ? "user" : "bot");
+
+    const b = document.createElement("div");
+    b.className = "bubble " + (role === "user" ? "user" : "bot");
+
+    // render rich content
+    const content = document.createElement("div");
+    content.className = "md";
+    renderMarkdownAndLatex(content, text || "");
+
+    b.appendChild(content);
+
+    if(small){
+      const s = document.createElement("span");
+      s.className = "small";
+      s.textContent = small;
+      b.appendChild(s);
+    }
+
+    wrap.appendChild(b);
+    document.getElementById("messages").appendChild(wrap);
+
+    const sc = document.getElementById("messages");
+    sc.scrollTop = sc.scrollHeight;
+  }
+
+  // Wait until marked + DOMPurify + KaTeX are loaded (because scripts are defer)
+  function libsReady(){
+    return !!(window.marked && window.DOMPurify && window.katex && window.renderMathInElement);
+  }
+
+  async function waitForLibs(){
+    const t0 = Date.now();
+    while(!libsReady()){
+      if(Date.now() - t0 > 5000) break;
+      await new Promise(r => setTimeout(r, 30));
+    }
+  }
+
+  // --------- API ----------
+  async function loadQuestion(){
+    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+    const topic = document.getElementById("topic").value || undefined;
+    const variant = document.getElementById("variant").value === "true";
+    const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
+
+    if(!api){
+      setStatus("Bitte eine API-URL eintragen.", "bad");
+      return;
+    }
+
+    setBusy(true);
+    setStatus("Lade Aufgabe…", null);
+
+    const payload = { mode: "next_question", variant: variant };
+    if(topic) payload.topic = topic;
+    if(baseId) payload.base_question_id = baseId;
+
+    try{
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      setRaw(data);
+
+      if(!res.ok){
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
+        return;
+      }
+
+      lastQuestion = data.rendered_question || "";
+      lastTopic = data.topic || topic || "";
+      lastQuestionId = data.question_id || "";
+
+      document.getElementById("qid").textContent = lastQuestionId || "—";
+      document.getElementById("qtopic").textContent = lastTopic || "—";
+
+      const meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\`${data.used_variant ? " · **Variante**" : ""}`;
+      addMessage("bot", lastQuestion || "—", meta);
+
+      setStatus("Aufgabe geladen. Antworte unten im Feld.", "ok");
+    }catch(e){
+      setStatus(e && e.message ? e.message : String(e), "bad");
+      addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  async function submitAnswer(){
+    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+    const answer = (document.getElementById("answer").value || "").trim();
+
+    if(!api){
+      setStatus("Bitte eine API-URL eintragen.", "bad");
+      return;
+    }
+    if(!lastQuestion){
+      setStatus("Bitte zuerst eine Aufgabe laden.", "warn");
+      return;
+    }
+    if(!answer){
+      setStatus("Bitte eine Antwort eingeben.", "warn");
+      return;
+    }
+
+    setBusy(true);
+    setStatus("Sende Antwort…", null);
+
+    // show user message (markdown + latex supported)
+    addMessage("user", answer);
+    document.getElementById("answer").value = "";
+
+    const payload = {
+      mode: "submit_answer",
+      last_question: lastQuestion,
+      student_answer: answer,
+      topic: lastTopic || "unknown",
+      question_id: lastQuestionId
+    };
+
+    try{
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      setRaw(data);
+
+      if(!res.ok){
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
+        return;
+      }
+
+      const correct = !!data.correct;
+      const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
+
+      const head = correct ? "✅ **Richtig**" : "❌ **Nicht ganz**";
+
+      const bodyParts = [];
+      if(data.tutor_feedback) bodyParts.push(data.tutor_feedback);
+
+      if(hints.length){
+        const list = hints.map(h => `- ${h}`).join("\n");
+        bodyParts.push("**Hinweise:**\n" + list);
+      }
+
+      addMessage("bot", [head, ...bodyParts].filter(Boolean).join("\n\n"), correct ? "Status: korrekt" : "Status: falsch");
+      setStatus("Feedback erhalten.", "ok");
+    }catch(e){
+      setStatus(e && e.message ? e.message : String(e), "bad");
+      addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  function resetChat(){
+    lastQuestion = "";
+    lastTopic = "";
+    lastQuestionId = "";
+    document.getElementById("qid").textContent = "—";
+    document.getElementById("qtopic").textContent = "—";
+    document.getElementById("messages").innerHTML = "";
+    document.getElementById("answer").value = "";
+    document.getElementById("raw").textContent = "—";
+    setStatus("Zurückgesetzt. Hol dir eine neue Aufgabe.", null);
+    addMessage("bot", "Zurückgesetzt. Klick auf **„Neue Aufgabe“**.");
+  }
+
+  // Enter to send, Shift+Enter newline
+  document.getElementById("answer").addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      submitAnswer();
+    }
+  });
+
+  // Init
+  (async function init(){
+    await waitForLibs();
+    addMessage("bot",
+      "Hi! Klick auf **„Neue Aufgabe“**. Du kannst Markdown und LaTeX schreiben.\n\n" +
+      "Beispiele:\n" +
+      "- Inline: $a^2+b^2=c^2$\n" +
+      "- Block:\n\n$$\\int_0^1 x^2\\,dx = \\frac{1}{3}$$"
+    );
+    setStatus(libsReady() ? "Bereit. (Markdown + LaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
+  })();
+</script>
+</body>
+</html>
 </body>
 </html>
