@@ -1182,12 +1182,6 @@ textarea::-webkit-resizer {
 
       <div class="messages" id="messages"></div>
       <div class="statusLine"><span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span></div>
-
-      <div class="composer">
-        <textarea id="answer" placeholder="Schreibe deine Antwort… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
-        <button class="btn" id="btnSend" onclick="submitAnswer()">Senden</button>
-        <button class="btn secondary" onclick="resetChat()" title="Antwort/Chat zurücksetzen">Reset</button>
-      </div>
     </div>
 
     <details>
@@ -1502,7 +1496,5 @@ autoGrow(answerEl);
     setStatus(libsReady() ? "Bereit. (Markdown + LaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
   })();
 </script>
-</body>
-</html>
 </body>
 </html>
