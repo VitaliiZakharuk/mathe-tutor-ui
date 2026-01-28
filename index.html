@@ -486,40 +486,33 @@
   function fixVectorLatex(text){
   let t = text || "";
 
-  // 0) Defensive: normalize some common PDF-export artifacts
-  t = t.replace(/\u1D40/g, "T"); // (rare) weird superscript T variants, harmless
-  t = t.replace(/ᵀ/g, "^{\\top}"); // unicode superscript T -> LaTeX
+  // 0) Normalize common "T" variants
+  t = t.replace(/ᵀ/g, "^{\\top}");      // unicode superscript T -> LaTeX
+  t = t.replace(/\\\^/g, "^");          // "\^" -> "^" (PDF export artifacts)
 
   // Fix nested delimiters like \(\( ... \)\)
   t = t.replace(/\\\(\s*\\\(/g, "\\(");
   t = t.replace(/\\\)\s*\\\)/g, "\\)");
 
-  // Normalize escaped caret from PDF pipelines: "\^" -> "^"
-  t = t.replace(/\\\^/g, "^");
-
-  // 1) If the vector text contains an odd number of $$, remove them (broken delimiter)
+  // 1) Broken $$ (odd count) -> remove (otherwise you see "$$" as plain text)
   const dbl = (t.match(/\$\$/g) || []).length;
-  if (dbl % 2 === 1){
-    t = t.replace(/\$\$/g, "");
-  }
+  if (dbl % 2 === 1) t = t.replace(/\$\$/g, "");
 
-  // 2) Normalize ^T to ^{\top} (KaTeX-friendly)
-  //    Only when it's clearly a superscript token
+  // 2) Normalize plain ^T -> ^{\top}
   t = t.replace(/\^T\b/g, "^{\\top}");
 
-  // 3) Wrap common "(... )^{\top}" patterns if they appear naked in text
+  // 3) Wrap naked tuples with transpose into inline math:
+  //    (7,3,6)^{\top}  -> \( (7,3,6)^{\top} \)
+  //    (x, y, z)^{\top} -> \( (x,y,z)^{\top} \)
+  // NOTE: we do this BEFORE line-wrapping so that later "g:" lines become mathy.
   t = t.replace(
-    /\(([^()\n]{1,220})\)\s*\^\{\s*\\top\s*\}/g,
-    (_, inside) => `\\((${inside})^{\\top}\\)`
+    /(^|[^\w\\])\(([^()\n]{1,240})\)\s*\^\{\s*\\top\s*\}/g,
+    (m, pre, inside) => `${pre}\\((${inside})^{\\top}\\)`
   );
 
-  // 4) Wrap typical vector/line definitions:
-  //    g: (x,y,z)^T = (...)^T + t(...)^T
-  //    E: 5x - y + 3z = 0
-  //    We wrap ONLY the part after ":" (or after "=" in label-lines).
-  const lines = t.split("\n");
-  const out = [];
-
+  // 4) Wrap typical definition lines like:
+  //    g: (x,y,z)^{\top} = ...   OR   E: 5x - y + 3z = 0
+  // We wrap ONLY the RHS-part (after ":" or "=", with a short label on the left).
   const looksMathy = (s) => {
     if(!s) return false;
     return (
@@ -531,47 +524,45 @@
     );
   };
 
+  const lines = t.split("\n");
+  const out = [];
+
   for (let line of lines){
     const l = line || "";
 
-    // If line already has math delimiters, keep it as-is
-    if(/(\$\$|\$|\\\(|\\\)|\\\[|\\\])/.test(l)){
+    // already delimited math -> keep
+    if(/(\$\$|\\\[|\\\(|\\\)|\\\])/g.test(l)){
       out.push(l);
       continue;
     }
 
-    // Case A: "g: ...." or "E: ...."
+    // Case A: label with ":"  e.g. "g: ..." or "E: ..."
     const mColon = l.match(/^(\s*[A-Za-z]\s*:\s*)(.*)$/);
     if(mColon && looksMathy(mColon[2])){
       out.push(mColon[1] + "\\(" + mColon[2].trim() + "\\)");
       continue;
     }
 
-    // Case B: "g = ...." (rare)
+    // Case B: label with "="  e.g. "g = ..." (rare)
     const mEq = l.match(/^(\s*[A-Za-z]\s*=\s*)(.*)$/);
     if(mEq && looksMathy(mEq[2])){
       out.push(mEq[1] + "\\(" + mEq[2].trim() + "\\)");
       continue;
     }
 
-    // Case C: a/b vectors in text: "a=(1,0,1)^T" or "b = (2,1,1)^T"
-    line = l.replace(
-      /(^|[\s,;:])([a-zA-Z])\s*=\s*\(([^()\n]{1,220})\)\s*\^\{\s*\\top\s*\}/g,
+    // Case C: inline a/b vector definitions inside text:
+    // "a = (1,0,1)^{\top}" -> "\(a=(1,0,1)^{\top}\)"
+    let replaced = l.replace(
+      /(^|[\s,;:])([a-zA-Z])\s*=\s*\(([^()\n]{1,240})\)\s*\^\{\s*\\top\s*\}/g,
       (mm, pre, v, inside) => `${pre}\\(${v}=(${inside})^{\\top}\\)`
     );
 
-    // If after replacement we created delimiters, keep it
-    if(/\\\(|\\\)/.test(line)){
-      out.push(line);
-      continue;
-    }
-
-    // Otherwise keep as-is
-    out.push(l);
+    out.push(replaced);
   }
 
   return out.join("\n");
 }
+
 
 
   function wrapLatexEnvironments(text){
