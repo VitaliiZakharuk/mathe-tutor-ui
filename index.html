@@ -484,28 +484,95 @@
   // --------- Robust Math + Markdown pipeline (KaTeX renderToString) ----------
 
   function fixVectorLatex(text){
-    let t = text || "";
+  let t = text || "";
 
-    // Fix nested delimiters like \(\( ... \)\)
-    t = t.replace(/\\\(\s*\\\(/g, "\\(");
-    t = t.replace(/\\\)\s*\\\)/g, "\\)");
+  // 0) Defensive: normalize some common PDF-export artifacts
+  t = t.replace(/\u1D40/g, "T"); // (rare) weird superscript T variants, harmless
+  t = t.replace(/ᵀ/g, "^{\\top}"); // unicode superscript T -> LaTeX
 
-    // Common PDF-export mess: ")\^\{\top\}" or "\^{\top}" without math delimiters
-    // Normalize escaped carets
-    t = t.replace(/\\\^/g, "^");
+  // Fix nested delimiters like \(\( ... \)\)
+  t = t.replace(/\\\(\s*\\\(/g, "\\(");
+  t = t.replace(/\\\)\s*\\\)/g, "\\)");
 
-    // Wrap ( ... )^{\top} even if it's "...\top" variants
-    t = t.replace(/\(([^()\n]{1,200})\)\s*\^\{\s*\\top\s*\}/g, (_, inside) => `\\((${inside})^{\\top}\\)`);
-    t = t.replace(/\(([^()\n]{1,200})\)\s*\^\s*\\top\b/g, (_, inside) => `\\((${inside})^{\\top}\\)`);
+  // Normalize escaped caret from PDF pipelines: "\^" -> "^"
+  t = t.replace(/\\\^/g, "^");
 
-    // Wrap patterns like a=(...)^{\top} / b=(...)^{\top}
-    t = t.replace(
-      /(^|[\s,;:])([a-zA-Z])\s*=\s*\(([^()\n]{1,200})\)\s*\^\{\s*\\top\s*\}/g,
-      (m, pre, v, inside) => `${pre}\\(${v}=(${inside})^{\\top}\\)`
+  // 1) If the vector text contains an odd number of $$, remove them (broken delimiter)
+  const dbl = (t.match(/\$\$/g) || []).length;
+  if (dbl % 2 === 1){
+    t = t.replace(/\$\$/g, "");
+  }
+
+  // 2) Normalize ^T to ^{\top} (KaTeX-friendly)
+  //    Only when it's clearly a superscript token
+  t = t.replace(/\^T\b/g, "^{\\top}");
+
+  // 3) Wrap common "(... )^{\top}" patterns if they appear naked in text
+  t = t.replace(
+    /\(([^()\n]{1,220})\)\s*\^\{\s*\\top\s*\}/g,
+    (_, inside) => `\\((${inside})^{\\top}\\)`
+  );
+
+  // 4) Wrap typical vector/line definitions:
+  //    g: (x,y,z)^T = (...)^T + t(...)^T
+  //    E: 5x - y + 3z = 0
+  //    We wrap ONLY the part after ":" (or after "=" in label-lines).
+  const lines = t.split("\n");
+  const out = [];
+
+  const looksMathy = (s) => {
+    if(!s) return false;
+    return (
+      /\\(mathbb|mathbf|vec|cdot|times|frac|sqrt|left|right)\b/.test(s) ||
+      /\^\{\\top\}/.test(s) ||
+      /[_^]/.test(s) ||
+      /[=]/.test(s) ||
+      /\([^\)]*,[^\)]*\)/.test(s) // tuples like (1,2,3)
+    );
+  };
+
+  for (let line of lines){
+    const l = line || "";
+
+    // If line already has math delimiters, keep it as-is
+    if(/(\$\$|\$|\\\(|\\\)|\\\[|\\\])/.test(l)){
+      out.push(l);
+      continue;
+    }
+
+    // Case A: "g: ...." or "E: ...."
+    const mColon = l.match(/^(\s*[A-Za-z]\s*:\s*)(.*)$/);
+    if(mColon && looksMathy(mColon[2])){
+      out.push(mColon[1] + "\\(" + mColon[2].trim() + "\\)");
+      continue;
+    }
+
+    // Case B: "g = ...." (rare)
+    const mEq = l.match(/^(\s*[A-Za-z]\s*=\s*)(.*)$/);
+    if(mEq && looksMathy(mEq[2])){
+      out.push(mEq[1] + "\\(" + mEq[2].trim() + "\\)");
+      continue;
+    }
+
+    // Case C: a/b vectors in text: "a=(1,0,1)^T" or "b = (2,1,1)^T"
+    line = l.replace(
+      /(^|[\s,;:])([a-zA-Z])\s*=\s*\(([^()\n]{1,220})\)\s*\^\{\s*\\top\s*\}/g,
+      (mm, pre, v, inside) => `${pre}\\(${v}=(${inside})^{\\top}\\)`
     );
 
-    return t;
+    // If after replacement we created delimiters, keep it
+    if(/\\\(|\\\)/.test(line)){
+      out.push(line);
+      continue;
+    }
+
+    // Otherwise keep as-is
+    out.push(l);
   }
+
+  return out.join("\n");
+}
+
 
   function wrapLatexEnvironments(text){
     let t = text || "";
