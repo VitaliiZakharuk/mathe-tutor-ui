@@ -514,33 +514,107 @@
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
-  // --------- NEW: Conservative LaTeX wrapping ----------
-  // KaTeX auto-render only processes LaTeX inside delimiters.
-  // Some tasks contain naked environments like \begin{pmatrix}...\end{pmatrix}.
-  // We wrap ONLY complete \begin...\end blocks (and optionally single formula-like lines) in $$...$$.
+  // ---------- NEW PATCH: better math normalization ----------
+
+  function convertExpToEPower(s){
+    // Converts exp( ... ) -> e^{ ... } with balanced parentheses
+    let out = "";
+    for(let i = 0; i < s.length; i++){
+      if(s.startsWith("exp(", i)){
+        i += 4; // after '('
+        let depth = 1;
+        let inner = "";
+        while(i < s.length && depth > 0){
+          const ch = s[i];
+          if(ch === "(") depth++;
+          else if(ch === ")") depth--;
+          if(depth > 0) inner += ch;
+          i++;
+        }
+        i -= 1;
+        out += `e^{${inner}}`;
+        continue;
+      }
+      out += s[i];
+    }
+    return out;
+  }
+
+  function normalizeMathLine(line){
+    let s = line;
+
+    // exp(...) -> e^{...}
+    s = convertExpToEPower(s);
+
+    // trig + log
+    s = s.replace(/\bcos\b/g, "\\cos");
+    s = s.replace(/\bsin\b/g, "\\sin");
+    s = s.replace(/\btan\b/g, "\\tan");
+    s = s.replace(/\bln\b/g, "\\ln");
+    s = s.replace(/\blog\b/g, "\\log");
+    s = s.replace(/\bpi\b/g, "\\pi");
+
+    // readability spaces
+    s = s.replace(/\+/g, " + ");
+    s = s.replace(/-/g, " - ");
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
+  }
+
   function wrapLatexConservatively(text){
     let t = text || "";
 
-    // Wrap complete LaTeX environments
+    // 1) Wrap complete LaTeX environments (pmatrix, aligned, cases, ...)
+    // normalize inside them too
     t = t.replace(/\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}/g, (m) => {
-      return `\n$$\n${m}\n$$\n`;
+      const normalized = normalizeMathLine(m);
+      return `\n$$\n${normalized}\n$$\n`;
     });
 
-    // Optional: wrap standalone formula-like lines (conservative)
+    // 2) Group consecutive "mathy" lines into display math blocks
     const lines = t.split("\n");
     const out = [];
-    const looksMath = (s) =>
-      /\\(frac|sqrt|cdot|times|sum|int|vec|hat|overrightarrow|mathbf|mathrm|left|right)\b/.test(s) ||
-      /[=]/.test(s);
 
-    for (const line of lines){
-      const l = line || "";
-      const hasDelim = /(\$\$|\$|\\\(|\\\)|\\\[|\\\])/.test(l);
-      const hasEnv = /\\begin\{|\}*\\end\{/.test(l);
-      if(!hasDelim && !hasEnv && looksMath(l) && l.includes("\\")){
-        out.push(`$$${l}$$`);
+    const isMathy = (s) => {
+      const l = (s || "").trim();
+      if(!l) return false;
+
+      // if already delimited, don't touch
+      if(/(\$\$|\$|\\\(|\\\)|\\\[|\\\])/.test(l)) return false;
+
+      // env marker lines
+      if(/\\begin\{|\\end\{/.test(l)) return true;
+
+      const hasOps = /[=+\-*/^]/.test(l);
+      const hasFunc = /\b(exp|cos|sin|tan|ln|log)\b/.test(l);
+      const hasLatex = /\\[a-zA-Z]+/.test(l);
+      const hasNumbersAndLetters = /[0-9]/.test(l) && /[a-zA-Z]/.test(l);
+
+      return hasOps || hasFunc || hasLatex || hasNumbersAndLetters;
+    };
+
+    let i = 0;
+    while(i < lines.length){
+      const line = lines[i];
+
+      if(!isMathy(line)){
+        out.push(line);
+        i++;
+        continue;
+      }
+
+      const block = [];
+      while(i < lines.length && isMathy(lines[i])){
+        block.push(normalizeMathLine(lines[i]));
+        i++;
+      }
+
+      if(block.length === 1){
+        out.push(`$$${block[0]}$$`);
       } else {
-        out.push(l);
+        out.push("$$");
+        out.push(block.join(" \\\\\n"));
+        out.push("$$");
       }
     }
 
