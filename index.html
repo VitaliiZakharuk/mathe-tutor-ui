@@ -178,12 +178,16 @@
     }
 
     .messages{
-      padding: 14px;
-      overflow:auto;
-      display:flex;
-      flex-direction:column;
-      gap: 10px;
-    }
+  padding: 14px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+
+  /* wichtig für Flex-Layouts: erlaubt dem Chat, kleiner zu werden */
+  flex: 1 1 auto;
+  min-height: 0;
+}
     .msgRow{display:flex}
     .msgRow.user{justify-content:flex-end}
     .bubble{
