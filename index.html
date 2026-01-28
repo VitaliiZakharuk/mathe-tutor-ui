@@ -237,24 +237,23 @@
       align-items:flex-end;
     }
     textarea{
-    width:100%;
-    min-height: 44px;
+  width:100%;
+  min-height: 44px;
+  max-height: none;
+  overflow: hidden;
+  resize: none;
 
-    /* wichtig: nicht begrenzen + keine Scrollbar */
-    max-height: none;
-    overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 
-    /* optional: Resize-Griff weg, weil wir auto-resizen */
-    resize: none;
-
-    padding: 10px 12px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    outline:none;
-    background: rgba(15,23,42,.65);
-    color: var(--text);
-    line-height: 1.4;
-    }
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  outline:none;
+  background: rgba(15,23,42,.65);
+  color: var(--text);
+  line-height: 1.4;
+}
 
     details{
       border:1px solid var(--border);
@@ -1324,12 +1323,12 @@ Copy code
   }
 
   // Enter to send, Shift+Enter newline
-  document.getElementById("answer").addEventListener("keydown", (e) => {
-    if(e.key === "Enter" && !e.shiftKey){
-      e.preventDefault();
-      submitAnswer();
-    }
-  });
+  answerEl.addEventListener("keydown", (e) => {
+  if(e.key === "Enter" && !e.shiftKey){
+    e.preventDefault();
+    submitAnswer();
+  }
+});
 
   const answerEl = document.getElementById("answer");
 
@@ -1340,7 +1339,8 @@ function autoGrow(el){
 }
 
 answerEl.addEventListener("input", () => autoGrow(answerEl));
-
+answerEl.addEventListener("keydown", () => autoGrow(answerEl));
+  
 // Beim Start einmal korrekt setzen (falls Browser den Inhalt cached)
 autoGrow(answerEl);
   
