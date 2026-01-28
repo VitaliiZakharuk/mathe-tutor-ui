@@ -343,7 +343,6 @@
       border-top:1px solid var(--border);
     }
 
-    /* Small helper row inside header */
     .metaRow{
       display:flex;
       gap:8px;
@@ -363,7 +362,6 @@
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <span class="pill"><span>Route:</span> <span class="mono">POST /chat</span></span>
 
-        <!-- optional -->
         <button class="btn" id="btnNew" onclick="loadQuestion(true)" title="Manuell neue Aufgabe holen (optional)">
           Neue Aufgabe
         </button>
@@ -397,7 +395,7 @@
         <div class="grid cols3">
           <div>
             <label for="baseId">Basis-Aufgabe-ID (optional)</label>
-            <input id="baseId" type="text" placeholder="z. B. V4_01 oder K7_12 (je nach Katalog)" />
+            <input id="baseId" type="text" placeholder="z. B. V5_05 oder K7_22" />
           </div>
           <div>
             <label for="studentId">Student-ID (Browser)</label>
@@ -480,7 +478,6 @@
   }
   const studentId = getStudentId();
 
-  // show studentId in settings
   document.addEventListener("DOMContentLoaded", () => {
     const sid = document.getElementById("studentId");
     if(sid) sid.value = studentId;
@@ -524,10 +521,54 @@
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
+  // --------- LaTeX auto-wrap for naked commands ----------
+  function wrapLatexBlocks(text){
+    let t = (text || "");
+    const lines = t.split("\n");
+    let out = [];
+    let inMathBlock = false;
+
+    for(let i=0;i<lines.length;i++){
+      const line = lines[i];
+
+      const looksLatex =
+        /\\begin\{(p?matrix|bmatrix|vmatrix|Vmatrix|cases|aligned|align|array)\}/.test(line) ||
+        /\\end\{(p?matrix|bmatrix|vmatrix|Vmatrix|cases|aligned|align|array)\}/.test(line) ||
+        /\\frac\{|\\sqrt\{|\\cdot|\\times|\\vec\{|\\hat\{|\\overrightarrow\{|\\sum|\\int/.test(line);
+
+      // wrap lines that look like LaTeX but are not already in delimiters
+      if(looksLatex && !inMathBlock){
+        inMathBlock = true;
+        out.push("$$");
+        out.push(line);
+        continue;
+      }
+
+      if(inMathBlock){
+        out.push(line);
+        const endsEnv = /\\end\{(p?matrix|bmatrix|vmatrix|Vmatrix|cases|aligned|align|array)\}/.test(line);
+        const next = (i+1<lines.length) ? lines[i+1] : "";
+        const nextLooksLatex =
+          /\\begin\{|\\end\{|\\frac\{|\\sqrt\{|\\cdot|\\times|\\vec\{|\\hat\{|\\overrightarrow\{|\\sum|\\int/.test(next);
+
+        if(endsEnv || !nextLooksLatex){
+          out.push("$$");
+          inMathBlock = false;
+        }
+        continue;
+      }
+
+      out.push(line);
+    }
+
+    return out.join("\n");
+  }
+
   // Markdown -> HTML -> sanitize -> render LaTeX
   function renderMarkdownAndLatex(containerEl, text){
-    const md = (text || "");
-    const html = window.marked.parse(md, { breaks: true, gfm: true });
+    const prepared = wrapLatexBlocks(text || "");
+    const html = window.marked.parse(prepared, { breaks: true, gfm: true });
+
     const clean = window.DOMPurify.sanitize(html, {
       USE_PROFILES: { html: true },
       ADD_TAGS: ["span", "math", "annotation", "semantics", "mrow", "mi", "mo", "mn"],
@@ -599,7 +640,6 @@
     document.getElementById("phase").textContent = phase || "—";
     document.getElementById("baseqid").textContent = baseId || "—";
 
-    // task meta
     const diffEl = document.getElementById("diff");
     const chapEl = document.getElementById("chapter");
     const diffBadge = document.getElementById("diffBadge");
@@ -614,7 +654,6 @@
       diffBadge.className = "badge " + badgeClassForDifficulty(Number(d));
       chapterBadge.className = "badge";
 
-      // Optional: include title as tooltip
       if(taskMeta.title) diffBadge.title = String(taskMeta.title);
       if(taskMeta.title) chapterBadge.title = String(taskMeta.title);
     } else {
@@ -627,7 +666,7 @@
     }
   }
 
-  // --------- Motivierende Starttexte (kurz, zufällig) ----------
+  // --------- Start lines ----------
   const START_LINES = [
     "Los geht’s — wir bringen Struktur in Mathe, Schritt für Schritt.",
     "Kurzer Check-in, dann starten wir direkt mit passenden Aufgaben.",
@@ -755,7 +794,6 @@
       }
 
       addMessage("bot", lastQuestion || "—", meta);
-
       setStatus("Bereit.", "ok");
     }catch(e){
       setStatus(e && e.message ? e.message : String(e), "bad");
@@ -816,14 +854,9 @@
 
       const phase = data.phase || lastPhase || "";
 
-      // --- Assessment: keine Bewertung, direkt nächste Frage ---
+      // Assessment (falls du es wieder aktivierst)
       if(phase === "assessment"){
-        if(data.tutor_feedback){
-          addMessage("bot", data.tutor_feedback);
-        } else {
-          addMessage("bot", "Danke! Nächste Einschätzungsfrage kommt…");
-        }
-
+        if(data.tutor_feedback) addMessage("bot", data.tutor_feedback);
         if(data.rendered_question){
           lastQuestion = data.rendered_question || "";
           lastTopic = data.topic || "assessment";
@@ -835,23 +868,13 @@
           setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
 
           let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
-          if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
-          if(lastTaskMeta && typeof lastTaskMeta === "object"){
-            const d = lastTaskMeta.difficulty;
-            const c = lastTaskMeta.chapter;
-            if(d != null) meta += ` · Diff: \`${d}\``;
-            if(c != null) meta += ` · Kap: \`${c}\``;
-            if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
-          }
-
           addMessage("bot", lastQuestion, meta);
         }
-
         setStatus("Bereit.", "ok");
         return;
       }
 
-      // --- Learning: interaktiv, ohne richtig/falsch ---
+      // Learning: interaktiv ohne richtig/falsch
       const parts = [];
       if(data.tutor_feedback) parts.push(data.tutor_feedback);
 
@@ -899,13 +922,12 @@
     addMessage("bot", start);
 
     setStatus(libsReady() ? "Bereit. (Markdown + LaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
-
-    // direkt starten (kein Klick nötig)
     await loadQuestion(false);
   })();
 </script>
 </body>
 </html>
+
 
 
 
