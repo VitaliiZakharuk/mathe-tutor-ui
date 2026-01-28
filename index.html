@@ -503,16 +503,16 @@
 
   // 3) Wrap naked tuples with transpose into inline math:
   //    (7,3,6)^{\top}  -> \( (7,3,6)^{\top} \)
-  //    (x, y, z)^{\top} -> \( (x,y,z)^{\top} \)
-  // NOTE: we do this BEFORE line-wrapping so that later "g:" lines become mathy.
+  // Only when it is NOT already inside \(...\) or $$...$$ (approx. guard by "pre char")
   t = t.replace(
     /(^|[^\w\\])\(([^()\n]{1,240})\)\s*\^\{\s*\\top\s*\}/g,
     (m, pre, inside) => `${pre}\\((${inside})^{\\top}\\)`
   );
 
   // 4) Wrap typical definition lines like:
-  //    g: (x,y,z)^{\top} = ...   OR   E: 5x - y + 3z = 0
-  // We wrap ONLY the RHS-part (after ":" or "=", with a short label on the left).
+  //    g: (x,y,z)^{\top} = (...)^{\top} + t(...)^{\top}
+  //    E: 5x - y + 3z = 0
+  // Wrap ONLY the RHS after ":" / "=" for single-letter labels.
   const looksMathy = (s) => {
     if(!s) return false;
     return (
@@ -520,7 +520,7 @@
       /\^\{\\top\}/.test(s) ||
       /[_^]/.test(s) ||
       /[=]/.test(s) ||
-      /\([^\)]*,[^\)]*\)/.test(s) // tuples like (1,2,3)
+      /\([^\)]*,[^\)]*\)/.test(s)
     );
   };
 
@@ -530,29 +530,29 @@
   for (let line of lines){
     const l = line || "";
 
-    // already delimited math -> keep
-    if(/(\$\$|\\\[|\\\(|\\\)|\\\])/g.test(l)){
+    // If line already has math delimiters, keep it as-is
+    if(/(\$\$|\\\[|\\\(|\\\)|\\\])/.test(l)){
       out.push(l);
       continue;
     }
 
-    // Case A: label with ":"  e.g. "g: ..." or "E: ..."
+    // Case A: "g: ...." or "E: ...."
     const mColon = l.match(/^(\s*[A-Za-z]\s*:\s*)(.*)$/);
     if(mColon && looksMathy(mColon[2])){
       out.push(mColon[1] + "\\(" + mColon[2].trim() + "\\)");
       continue;
     }
 
-    // Case B: label with "="  e.g. "g = ..." (rare)
+    // Case B: "g = ...." (rare)
     const mEq = l.match(/^(\s*[A-Za-z]\s*=\s*)(.*)$/);
     if(mEq && looksMathy(mEq[2])){
       out.push(mEq[1] + "\\(" + mEq[2].trim() + "\\)");
       continue;
     }
 
-    // Case C: inline a/b vector definitions inside text:
+    // Case C: a/b vector definitions inside text:
     // "a = (1,0,1)^{\top}" -> "\(a=(1,0,1)^{\top}\)"
-    let replaced = l.replace(
+    const replaced = l.replace(
       /(^|[\s,;:])([a-zA-Z])\s*=\s*\(([^()\n]{1,240})\)\s*\^\{\s*\\top\s*\}/g,
       (mm, pre, v, inside) => `${pre}\\(${v}=(${inside})^{\\top}\\)`
     );
