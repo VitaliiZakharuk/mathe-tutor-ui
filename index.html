@@ -360,7 +360,7 @@
       <div class="statusLine"><span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span></div>
 
       <div class="composer">
-        <textarea id="answer" placeholder="Schreibe deine Antwort… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
+        <textarea id="answer" rows="1" placeholder="Schreibe deine Antwort… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
         <button class="btn" id="btnSend" onclick="submitAnswer()">Senden</button>
         <button class="btn secondary" onclick="resetChat()" title="Antwort/Chat zurücksetzen">Reset</button>
       </div>
@@ -501,7 +501,8 @@
     setStatus("Sende Antwort…", null);
 
     addMessage("user", answer);
-    document.getElementById("answer").value = "";
+    answerEl.value = "";
+    autoGrow(answerEl);
 
     const payload = {
       mode: "submit_answer",
@@ -558,13 +559,30 @@
     setStatus("Zurückgesetzt. Hol dir eine neue Aufgabe.", null);
   }
 
-  // Enter to send, Shift+Enter newline
-  document.getElementById("answer").addEventListener("keydown", (e) => {
-    if(e.key === "Enter" && !e.shiftKey){
-      e.preventDefault();
-      submitAnswer();
-    }
-  });
+const answerEl = document.getElementById("answer");
+
+function autoGrow(el){
+  // Trick: erst auf 0 setzen, dann auf den benötigten Inhalt wachsen
+  el.style.height = "0px";
+  el.style.height = el.scrollHeight + "px";
+}
+
+// Enter = senden, Shift+Enter = neue Zeile
+answerEl.addEventListener("keydown", (e) => {
+  if(e.key === "Enter" && !e.shiftKey){
+    e.preventDefault();
+    submitAnswer();
+  }
+});
+
+// Bei jeder Eingabe wachsen
+answerEl.addEventListener("input", () => {
+  // rAF macht es in manchen Browsern zuverlässig (Layout ist dann aktualisiert)
+  requestAnimationFrame(() => autoGrow(answerEl));
+});
+
+// Beim Start einmal korrekt setzen
+requestAnimationFrame(() => autoGrow(answerEl));
 
   // Seed initial bot message
   addMessage("bot", "Hi! Klick auf „Neue Aufgabe“, wähle optional ein Thema, und sende dann deine Antwort.");
