@@ -1199,22 +1199,22 @@ textarea::-webkit-resizer {
 
 <script>
   // --------- State ----------
-  let lastQuestion = "";
-  let lastTopic = "";
-  let lastQuestionId = "";
+let lastQuestion = "";
+let lastTopic = "";
+let lastQuestionId = "";
 
 // ---- student_id (persistiert im Browser) ----
 function getStudentId(){
   const key = "tutor_student_id";
   let id = localStorage.getItem(key);
   if(!id){
-    // UUID falls verfügbar, sonst Fallback
     id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ("sid_" + Math.random().toString(16).slice(2) + Date.now());
     localStorage.setItem(key, id);
   }
   return id;
 }
 const studentId = getStudentId();
+console.log("studentId:", studentId);
   
   // --------- Utils ----------
   function normalizeApiUrl(url){
@@ -1342,6 +1342,7 @@ const studentId = getStudentId();
     setStatus("Lade Aufgabe…", null);
 
     const payload = { mode: "next_question", variant: variant, student_id: studentId };
+    console.log("next_question payload:", payload);
     if(topic) payload.topic = topic;
     if(baseId) payload.base_question_id = baseId;
 
@@ -1405,7 +1406,7 @@ const studentId = getStudentId();
     document.getElementById("answer").value = "";
     autoGrow(answerEl);
     
-    const payload = {
+  const payload = {
   mode: "submit_answer",
   student_id: studentId,
   last_question: lastQuestion,
@@ -1413,6 +1414,7 @@ const studentId = getStudentId();
   topic: lastTopic || "unknown",
   question_id: lastQuestionId
 };
+console.log("submit_answer payload:", payload);
 
     try{
       const res = await fetch(api, {
