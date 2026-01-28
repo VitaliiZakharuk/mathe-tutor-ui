@@ -179,6 +179,8 @@
       justify-content:space-between;
       border-bottom:1px solid var(--border);
       background: rgba(17,28,58,.45);
+      gap: 10px;
+      flex-wrap: wrap;
     }
     .chatHeader .meta{display:flex; gap:8px; flex-wrap:wrap;}
     .badge{
@@ -189,6 +191,10 @@
       color: var(--muted);
       background: rgba(17,28,58,.35);
     }
+    .badge.strong{color: var(--text);}
+    .badge.ok{border-color: rgba(34,197,94,.35);}
+    .badge.warn{border-color: rgba(245,158,11,.35);}
+    .badge.bad{border-color: rgba(239,68,68,.35);}
 
     .messages{
       padding: 14px;
@@ -202,7 +208,7 @@
     .msgRow{display:flex}
     .msgRow.user{justify-content:flex-end}
     .bubble{
-      max-width: 82ch;
+      max-width: 90ch;
       padding: 12px 12px;
       border-radius: 16px;
       border: 1px solid var(--border);
@@ -323,7 +329,7 @@
     details summary{
       cursor:pointer;
       padding: 12px 14px;
-      color: var(--muted);
+      color:var(--muted);
       user-select:none;
     }
     pre#raw{
@@ -336,6 +342,14 @@
       color: #cbd5e1;
       border-top:1px solid var(--border);
     }
+
+    /* Small helper row inside header */
+    .metaRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
   </style>
 </head>
 <body>
@@ -344,12 +358,12 @@
     <div class="top">
       <div class="title">
         <h1>Mathe-Tutor</h1>
-        <p>Assessment → Lernmodus (automatisch)</p>
+        <p>Assessment → Lernmodus (automatisch) · Aufgaben aus Aufgaben-Katalog · Hilfen nur aus Skript-Context</p>
       </div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <span class="pill"><span>Route:</span> <span class="mono">POST /chat</span></span>
 
-        <!-- Button bleibt als "manuell neue Aufgabe holen", aber nicht mehr nötig zum Start -->
+        <!-- optional -->
         <button class="btn" id="btnNew" onclick="loadQuestion(true)" title="Manuell neue Aufgabe holen (optional)">
           Neue Aufgabe
         </button>
@@ -360,7 +374,7 @@
       <div class="settingsHead" onclick="toggleSettings()">
         <div class="left">
           <div style="font-weight:700;">Einstellungen</div>
-          <div class="hint">API-URL, Thema, Variante, Basis-ID</div>
+          <div class="hint">API-URL, Thema, Basis-ID (Katalog-ID)</div>
         </div>
         <div class="pill"><span class="mono" id="settingsState">geschlossen</span></div>
       </div>
@@ -374,23 +388,20 @@
             <label for="topic">Thema (optional)</label>
             <select id="topic">
               <option value="">Zufällig</option>
-              <option value="komplexe_zahlen">Komplexe Zahlen</option>
               <option value="vektoren">Vektoren</option>
+              <option value="komplexe_zahlen">Komplexe Zahlen</option>
             </select>
           </div>
         </div>
 
         <div class="grid cols3">
           <div>
-            <label for="variant">Variante</label>
-            <select id="variant">
-              <option value="false">Original</option>
-              <option value="true">Neue Zahlen</option>
-            </select>
+            <label for="baseId">Basis-Aufgabe-ID (optional)</label>
+            <input id="baseId" type="text" placeholder="z. B. V4_01 oder K7_12 (je nach Katalog)" />
           </div>
           <div>
-            <label for="baseId">Basis-Aufgabe-ID (optional)</label>
-            <input id="baseId" type="text" placeholder="z. B. vektoren:12" />
+            <label for="studentId">Student-ID (Browser)</label>
+            <input id="studentId" type="text" readonly />
           </div>
           <div style="display:flex; gap:10px; align-items:flex-end;">
             <button class="btn" style="width:100%;" onclick="loadQuestion(true)">Aufgabe holen</button>
@@ -405,12 +416,15 @@
 
     <div class="chat">
       <div class="chatHeader">
-        <div class="meta">
-          <span class="badge">Question-ID: <span class="mono" id="qid">—</span></span>
+        <div class="metaRow">
+          <span class="badge strong">Question-ID: <span class="mono" id="qid">—</span></span>
           <span class="badge">Topic: <span class="mono" id="qtopic">—</span></span>
           <span class="badge">Phase: <span class="mono" id="phase">—</span></span>
+          <span class="badge">Katalog-ID: <span class="mono" id="baseqid">—</span></span>
         </div>
-        <div class="meta">
+        <div class="metaRow">
+          <span class="badge" id="diffBadge">Diff: <span class="mono" id="diff">—</span></span>
+          <span class="badge" id="chapterBadge">Kap: <span class="mono" id="chapter">—</span></span>
           <span class="badge" id="conn">bereit</span>
         </div>
       </div>
@@ -451,6 +465,8 @@
   let lastTopic = "";
   let lastQuestionId = "";
   let lastPhase = "";
+  let lastBaseQuestionId = "";
+  let lastTaskMeta = null;
 
   // ---- student_id (persistiert im Browser) ----
   function getStudentId(){
@@ -463,6 +479,12 @@
     return id;
   }
   const studentId = getStudentId();
+
+  // show studentId in settings
+  document.addEventListener("DOMContentLoaded", () => {
+    const sid = document.getElementById("studentId");
+    if(sid) sid.value = studentId;
+  });
 
   // --------- Utils ----------
   function normalizeApiUrl(url){
@@ -564,10 +586,45 @@
     }
   }
 
-  function setHeader(qid, topic, phase){
+  function badgeClassForDifficulty(d){
+    if(d === 2) return "ok";
+    if(d === 3) return "warn";
+    if(d >= 4) return "bad";
+    return "";
+  }
+
+  function setHeader(qid, topic, phase, baseId, taskMeta){
     document.getElementById("qid").textContent = qid || "—";
     document.getElementById("qtopic").textContent = topic || "—";
     document.getElementById("phase").textContent = phase || "—";
+    document.getElementById("baseqid").textContent = baseId || "—";
+
+    // task meta
+    const diffEl = document.getElementById("diff");
+    const chapEl = document.getElementById("chapter");
+    const diffBadge = document.getElementById("diffBadge");
+    const chapterBadge = document.getElementById("chapterBadge");
+
+    if(taskMeta && typeof taskMeta === "object"){
+      const d = taskMeta.difficulty ?? "—";
+      const c = taskMeta.chapter ?? "—";
+      diffEl.textContent = d;
+      chapEl.textContent = c;
+
+      diffBadge.className = "badge " + badgeClassForDifficulty(Number(d));
+      chapterBadge.className = "badge";
+
+      // Optional: include title as tooltip
+      if(taskMeta.title) diffBadge.title = String(taskMeta.title);
+      if(taskMeta.title) chapterBadge.title = String(taskMeta.title);
+    } else {
+      diffEl.textContent = "—";
+      chapEl.textContent = "—";
+      diffBadge.className = "badge";
+      chapterBadge.className = "badge";
+      diffBadge.title = "";
+      chapterBadge.title = "";
+    }
   }
 
   // --------- Motivierende Starttexte (kurz, zufällig) ----------
@@ -648,7 +705,6 @@
   async function loadQuestion(manual=false){
     const api = normalizeApiUrl(document.getElementById("apiUrl").value);
     const topic = document.getElementById("topic").value || undefined;
-    const variant = document.getElementById("variant").value === "true";
     const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
 
     if(!api){
@@ -659,7 +715,7 @@
     setBusy(true);
     setStatus(manual ? "Lade Aufgabe…" : "Starte…", null);
 
-    const payload = { mode: "next_question", variant: variant, student_id: studentId };
+    const payload = { mode: "next_question", student_id: studentId };
     if(topic) payload.topic = topic;
     if(baseId) payload.base_question_id = baseId;
 
@@ -679,15 +735,25 @@
         return;
       }
 
-      // Standardisiert: Backend liefert phase/topic/question_id/rendered_question
       lastQuestion = data.rendered_question || "";
       lastTopic = data.topic || topic || "";
       lastQuestionId = data.question_id || "";
       lastPhase = data.phase || "";
+      lastBaseQuestionId = data.base_question_id || "";
+      lastTaskMeta = data.task_meta || null;
 
-      setHeader(lastQuestionId, lastTopic, lastPhase);
+      setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
 
-      const meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+      let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+      if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
+      if(lastTaskMeta && typeof lastTaskMeta === "object"){
+        const d = lastTaskMeta.difficulty;
+        const c = lastTaskMeta.chapter;
+        if(d != null) meta += ` · Diff: \`${d}\``;
+        if(c != null) meta += ` · Kap: \`${c}\``;
+        if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
+      }
+
       addMessage("bot", lastQuestion || "—", meta);
 
       setStatus("Bereit.", "ok");
@@ -750,7 +816,7 @@
 
       const phase = data.phase || lastPhase || "";
 
-      // --- Assessment: KEIN "Richtig/Falsch", sondern kurz bestätigen + nächste Frage anzeigen ---
+      // --- Assessment: keine Bewertung, direkt nächste Frage ---
       if(phase === "assessment"){
         if(data.tutor_feedback){
           addMessage("bot", data.tutor_feedback);
@@ -758,16 +824,26 @@
           addMessage("bot", "Danke! Nächste Einschätzungsfrage kommt…");
         }
 
-        // Backend liefert die nächste Frage direkt (oder beim letzten Schritt die erste Lern-Aufgabe)
         if(data.rendered_question){
           lastQuestion = data.rendered_question || "";
           lastTopic = data.topic || "assessment";
           lastQuestionId = data.question_id || lastQuestionId;
           lastPhase = data.phase || "assessment";
+          lastBaseQuestionId = data.base_question_id || "";
+          lastTaskMeta = data.task_meta || null;
 
-          setHeader(lastQuestionId, lastTopic, lastPhase);
+          setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
 
-          const meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+          let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+          if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
+          if(lastTaskMeta && typeof lastTaskMeta === "object"){
+            const d = lastTaskMeta.difficulty;
+            const c = lastTaskMeta.chapter;
+            if(d != null) meta += ` · Diff: \`${d}\``;
+            if(c != null) meta += ` · Kap: \`${c}\``;
+            if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
+          }
+
           addMessage("bot", lastQuestion, meta);
         }
 
@@ -775,19 +851,22 @@
         return;
       }
 
-      // --- Learning: wie gehabt mit Feedback (Richtig/Nicht ganz) ---
-      const correct = !!data.correct;
-      const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
-
-      const head = correct ? "✅ **Richtig**" : "❌ **Nicht ganz**";
+      // --- Learning: interaktiv, ohne richtig/falsch ---
       const parts = [];
       if(data.tutor_feedback) parts.push(data.tutor_feedback);
+
+      const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
       if(hints.length){
         parts.push("**Hinweise:**\n" + hints.map(h => `- ${h}`).join("\n"));
       }
-      addMessage("bot", [head, ...parts].filter(Boolean).join("\n\n"));
 
-      setStatus("Feedback erhalten.", "ok");
+      if(data.next_question){
+        parts.push("**Nächster Schritt:**\n" + data.next_question);
+      }
+
+      addMessage("bot", parts.filter(Boolean).join("\n\n"));
+      setStatus("Antwort erhalten.", "ok");
+
     }catch(e){
       setStatus(e && e.message ? e.message : String(e), "bad");
       addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
@@ -812,7 +891,7 @@
     }
   });
 
-  // Init (AUTO-START: direkt Assessment/erste Frage holen)
+  // Init (AUTO-START)
   (async function init(){
     await waitForLibs();
 
@@ -827,5 +906,6 @@
 </script>
 </body>
 </html>
+
 
 
