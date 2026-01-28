@@ -514,7 +514,7 @@
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
-  // --------- NEW: Conservative LaTeX wrapping ----------
+  // --------- LaTeX helpers ----------
   // KaTeX auto-render only processes LaTeX inside delimiters.
   // Some tasks contain naked environments like \begin{pmatrix}...\end{pmatrix}.
   // We wrap ONLY complete \begin...\end blocks (and optionally single formula-like lines) in $$...$$.
@@ -547,11 +547,33 @@
     return out.join("\n");
   }
 
-  // Markdown -> HTML -> sanitize -> render LaTeX
-  function renderMarkdownAndLatex(containerEl, text){
-    const prepared = wrapLatexConservatively(text || "");
-    const html = window.marked.parse(prepared, { breaks: true, gfm: true });
+  // Fix ONLY for vector tasks:
+  // Some vector tasks have nested delimiters like \(\(x,y,z)^\top\), which breaks auto-render.
+  function fixVectorLatex(text){
+    let t = text || "";
 
+    // Fix nested \(\(  and \)\)
+    t = t.replace(/\\\(\s*\\\(/g, "\\(");
+    t = t.replace(/\\\)\s*\\\)/g, "\\)");
+
+    // Defensive: collapse accidental empty display blocks
+    t = t.replace(/\$\$\s*\$\$/g, "$$");
+
+    return t;
+  }
+
+  // Markdown -> HTML -> sanitize -> render LaTeX
+  function renderMarkdownAndLatex(containerEl, text, topic=null){
+    let prepared = text || "";
+
+    // Only patch vector tasks; complex numbers remain unchanged
+    if(topic === "vektoren"){
+      prepared = fixVectorLatex(prepared);
+    }
+
+    prepared = wrapLatexConservatively(prepared);
+
+    const html = window.marked.parse(prepared, { breaks: true, gfm: true });
     const clean = window.DOMPurify.sanitize(html, {
       USE_PROFILES: { html: true },
     });
@@ -571,7 +593,8 @@
     }
   }
 
-  function addMessage(role, text, small=null){
+  // UPDATED: addMessage supports topic so we can render topic-specific LaTeX fixes
+  function addMessage(role, text, small=null, topic=null){
     const wrap = document.createElement("div");
     wrap.className = "msgRow " + (role === "user" ? "user" : "bot");
 
@@ -580,7 +603,7 @@
 
     const content = document.createElement("div");
     content.className = "md";
-    renderMarkdownAndLatex(content, text || "");
+    renderMarkdownAndLatex(content, text || "", topic);
     b.appendChild(content);
 
     if(small){
@@ -656,9 +679,9 @@
 
   // --------- Start lines ----------
   const START_LINES = [
-    "Los geht’s — wir bringen Struktur in Mathe, Schritt für Schritt.",
+    "Los geht’s, wir bringen Struktur in Mathe, Schritt für Schritt.",
     "Kurzer Check-in, dann starten wir direkt mit passenden Aufgaben.",
-    "Heute wird’s sauber: erst einschätzen, dann gezielt trainieren.",
+    "Erst einschätzen, dann gezielt trainieren.",
     "Wir machen’s effizient: ein paar Fragen, dann die richtigen Aufgaben."
   ];
 
@@ -789,7 +812,9 @@
           if(c != null) meta += ` · Kap: \`${c}\``;
           if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
         }
-        addMessage("bot", lastQuestion, meta);
+
+        // UPDATED: pass topic for topic-specific LaTeX handling
+        addMessage("bot", lastQuestion, meta, lastTopic);
       } else {
         addMessage("bot", "—");
       }
@@ -885,7 +910,8 @@
           if(data.task_meta.title) meta += ` · ${String(data.task_meta.title)}`;
         }
 
-        addMessage("bot", data.rendered_question, meta);
+        // UPDATED: pass topic for topic-specific LaTeX handling
+        addMessage("bot", data.rendered_question, meta, data.topic || lastTopic);
         setStatus("Bereit.", "ok");
         return;
       }
