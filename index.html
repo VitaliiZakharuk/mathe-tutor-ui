@@ -804,99 +804,63 @@
   }
 
   async function submitAnswer(){
-    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
-    const answer = (document.getElementById("answer").value || "").trim();
+  const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+  const answer = (document.getElementById("answer").value || "").trim();
 
-    if(!api){
-      setStatus("Bitte eine API-URL eintragen.", "bad");
-      return;
-    }
-    if(!lastQuestion){
-      setStatus("Noch keine Frage geladen.", "warn");
-      return;
-    }
-    if(!answer){
-      setStatus("Bitte eine Antwort eingeben.", "warn");
-      return;
-    }
-
-    setBusy(true);
-    setStatus("Sende…", null);
-
-    addMessage("user", answer);
-    answerEl.value = "";
-    autoGrow(answerEl);
-
-    const payload = {
-      mode: "submit_answer",
-      student_id: studentId,
-      last_question: lastQuestion,
-      student_answer: answer,
-      topic: lastTopic || "unknown",
-      question_id: lastQuestionId
-    };
-
-    try{
-      const res = await fetch(api, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json().catch(() => ({}));
-      setRaw(data);
-
-      if(!res.ok){
-        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
-        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
-        return;
-      }
-
-      const phase = data.phase || lastPhase || "";
-
-      // Assessment (falls du es wieder aktivierst)
-      if(phase === "assessment"){
-        if(data.tutor_feedback) addMessage("bot", data.tutor_feedback);
-        if(data.rendered_question){
-          lastQuestion = data.rendered_question || "";
-          lastTopic = data.topic || "assessment";
-          lastQuestionId = data.question_id || lastQuestionId;
-          lastPhase = data.phase || "assessment";
-          lastBaseQuestionId = data.base_question_id || "";
-          lastTaskMeta = data.task_meta || null;
-
-          setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
-
-          let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
-          addMessage("bot", lastQuestion, meta);
-        }
-        setStatus("Bereit.", "ok");
-        return;
-      }
-
-      // Learning: interaktiv ohne richtig/falsch
-      const parts = [];
-      if(data.tutor_feedback) parts.push(data.tutor_feedback);
-
-      const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
-      if(hints.length){
-        parts.push("**Hinweise:**\n" + hints.map(h => `- ${h}`).join("\n"));
-      }
-
-      if(data.next_question){
-        parts.push("**Nächster Schritt:**\n" + data.next_question);
-      }
-
-      addMessage("bot", parts.filter(Boolean).join("\n\n"));
-      setStatus("Antwort erhalten.", "ok");
-
-    }catch(e){
-      setStatus(e && e.message ? e.message : String(e), "bad");
-      addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
-    }finally{
-      setBusy(false);
-    }
+  if(!api){
+    setStatus("Bitte eine API-URL eintragen.", "bad");
+    return;
   }
+  if(!lastQuestion){
+    setStatus("Noch keine Frage geladen.", "warn");
+    return;
+  }
+  if(!answer){
+    setStatus("Bitte eine Antwort eingeben.", "warn");
+    return;
+  }
+
+  setBusy(true);
+  setStatus("Sende…", null);
+
+  addMessage("user", answer);
+  answerEl.value = "";
+  autoGrow(answerEl);
+
+  const payload = {
+    mode: "submit_answer",
+    student_id: studentId,
+    last_question: lastQuestion,
+    student_answer: answer,
+    topic: lastTopic || "unknown",
+    question_id: lastQuestionId,
+    base_question_id: lastBaseQuestionId || undefined   // ← DAS war neu & wichtig
+  };
+
+  try{
+    const res = await fetch(api, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    setRaw(data);
+
+    if(!res.ok){
+      setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+      addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
+      return;
+    }
+
+    // (Rest deines Codes bleibt unverändert)
+
+  } catch(e){
+    setStatus(e.message || String(e), "bad");
+  } finally {
+    setBusy(false);
+  }
+}
 
   // Textarea auto-grow
   const answerEl = document.getElementById("answer");
