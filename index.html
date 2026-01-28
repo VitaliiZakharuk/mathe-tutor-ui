@@ -55,7 +55,6 @@
       gap: 12px;
     }
 
-    /* Top bar */
     .top{
       display:flex;
       align-items:center;
@@ -94,7 +93,6 @@
     .btn:hover{filter:brightness(1.07)}
     .btn:disabled{opacity:.55; cursor:not-allowed;}
 
-    /* Round icon buttons */
     .iconBtn{
       width: 42px;
       height: 42px;
@@ -122,7 +120,6 @@
       outline-offset: 2px;
     }
 
-    /* Settings */
     .settings{
       border:1px solid var(--border);
       border-radius: var(--radius);
@@ -161,7 +158,6 @@
     }
     input[type="text"]::placeholder{color: rgba(148,163,184,.6)}
 
-    /* Chat */
     .chat{
       flex:1;
       border:1px solid var(--border);
@@ -182,7 +178,6 @@
       gap: 10px;
       flex-wrap: wrap;
     }
-    .chatHeader .meta{display:flex; gap:8px; flex-wrap:wrap;}
     .badge{
       font-size:12px;
       padding:6px 10px;
@@ -233,7 +228,6 @@
       color: rgba(148,163,184,.95);
     }
 
-    /* Markdown rendering inside bubbles */
     .bubble .md{white-space:normal}
     .bubble .md p{margin:0 0 10px}
     .bubble .md p:last-child{margin-bottom:0}
@@ -273,7 +267,6 @@
       color: rgba(229,231,235,.95);
     }
 
-    /* KaTeX tweaks */
     .katex{font-size: 1.02em}
     .katex-display{overflow:auto; padding: 6px 0}
 
@@ -292,7 +285,6 @@
     .statusDot.bad{background: var(--bad)}
     .statusDot.warn{background: var(--warn)}
 
-    /* Composer */
     .composer{
       border-top:1px solid var(--border);
       background: rgba(17,28,58,.45);
@@ -362,7 +354,7 @@
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <span class="pill"><span>Route:</span> <span class="mono">POST /chat</span></span>
 
-        <button class="btn" id="btnNew" onclick="loadQuestion(true)" title="Manuell neue Aufgabe holen (optional)">
+        <button class="btn" id="btnNew" onclick="loadQuestion(true)" title="Manuell neue Aufgabe holen (nur im Lernmodus)">
           Neue Aufgabe
         </button>
       </div>
@@ -515,65 +507,22 @@
 
   function setBusy(busy){
     document.getElementById("btnSend").disabled = busy;
-    document.getElementById("btnNew").disabled = busy;
+    // New task is only allowed in learning; if assessment, it stays disabled below.
+    const newBtn = document.getElementById("btnNew");
+    if(newBtn) newBtn.disabled = busy || (lastPhase === "assessment");
     const mic = document.getElementById("btnMic");
     if(mic) mic.disabled = busy;
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
-  // --------- LaTeX auto-wrap for naked commands ----------
-  function wrapLatexBlocks(text){
-    let t = (text || "");
-    const lines = t.split("\n");
-    let out = [];
-    let inMathBlock = false;
-
-    for(let i=0;i<lines.length;i++){
-      const line = lines[i];
-
-      const looksLatex =
-        /\\begin\{(p?matrix|bmatrix|vmatrix|Vmatrix|cases|aligned|align|array)\}/.test(line) ||
-        /\\end\{(p?matrix|bmatrix|vmatrix|Vmatrix|cases|aligned|align|array)\}/.test(line) ||
-        /\\frac\{|\\sqrt\{|\\cdot|\\times|\\vec\{|\\hat\{|\\overrightarrow\{|\\sum|\\int/.test(line);
-
-      // wrap lines that look like LaTeX but are not already in delimiters
-      if(looksLatex && !inMathBlock){
-        inMathBlock = true;
-        out.push("$$");
-        out.push(line);
-        continue;
-      }
-
-      if(inMathBlock){
-        out.push(line);
-        const endsEnv = /\\end\{(p?matrix|bmatrix|vmatrix|Vmatrix|cases|aligned|align|array)\}/.test(line);
-        const next = (i+1<lines.length) ? lines[i+1] : "";
-        const nextLooksLatex =
-          /\\begin\{|\\end\{|\\frac\{|\\sqrt\{|\\cdot|\\times|\\vec\{|\\hat\{|\\overrightarrow\{|\\sum|\\int/.test(next);
-
-        if(endsEnv || !nextLooksLatex){
-          out.push("$$");
-          inMathBlock = false;
-        }
-        continue;
-      }
-
-      out.push(line);
-    }
-
-    return out.join("\n");
-  }
-
   // Markdown -> HTML -> sanitize -> render LaTeX
   function renderMarkdownAndLatex(containerEl, text){
-    const prepared = wrapLatexBlocks(text || "");
-    const html = window.marked.parse(prepared, { breaks: true, gfm: true });
+    const html = window.marked.parse(text || "", { breaks: true, gfm: true });
 
     const clean = window.DOMPurify.sanitize(html, {
       USE_PROFILES: { html: true },
-      ADD_TAGS: ["span", "math", "annotation", "semantics", "mrow", "mi", "mo", "mn"],
-      ADD_ATTR: ["class", "style", "aria-hidden", "role"]
     });
+
     containerEl.innerHTML = clean;
 
     if(window.renderMathInElement){
@@ -664,6 +613,13 @@
       diffBadge.title = "";
       chapterBadge.title = "";
     }
+
+    // Disable new-task button in assessment
+    const newBtn = document.getElementById("btnNew");
+    if(newBtn){
+      newBtn.disabled = (phase === "assessment");
+      newBtn.title = (phase === "assessment") ? "Im Assessment deaktiviert" : "Manuell neue Aufgabe holen (nur im Lernmodus)";
+    }
   }
 
   // --------- Start lines ----------
@@ -717,6 +673,7 @@
       };
 
       recognition.onend = () => {
+        // only restart if still dictating
         if(dictating){
           try { recognition.start(); } catch(_) {}
         }
@@ -741,6 +698,17 @@
   }
 
   // --------- API ----------
+  function applyServerStateFromQuestionResponse(data){
+    lastQuestion = data.rendered_question || "";
+    lastTopic = data.topic || lastTopic || "";
+    lastQuestionId = data.question_id || lastQuestionId || "";
+    lastPhase = data.phase || lastPhase || "";
+    lastBaseQuestionId = data.base_question_id || "";
+    lastTaskMeta = data.task_meta || null;
+
+    setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
+  }
+
   async function loadQuestion(manual=false){
     const api = normalizeApiUrl(document.getElementById("apiUrl").value);
     const topic = document.getElementById("topic").value || undefined;
@@ -752,7 +720,7 @@
     }
 
     setBusy(true);
-    setStatus(manual ? "Lade Aufgabe…" : "Starte…", null);
+    setStatus(manual ? "Lade…" : "Starte…", null);
 
     const payload = { mode: "next_question", student_id: studentId };
     if(topic) payload.topic = topic;
@@ -774,26 +742,28 @@
         return;
       }
 
-      lastQuestion = data.rendered_question || "";
-      lastTopic = data.topic || topic || "";
-      lastQuestionId = data.question_id || "";
-      lastPhase = data.phase || "";
-      lastBaseQuestionId = data.base_question_id || "";
-      lastTaskMeta = data.task_meta || null;
+      // If assessment: show message + question
+      applyServerStateFromQuestionResponse(data);
 
-      setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
-
-      let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
-      if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
-      if(lastTaskMeta && typeof lastTaskMeta === "object"){
-        const d = lastTaskMeta.difficulty;
-        const c = lastTaskMeta.chapter;
-        if(d != null) meta += ` · Diff: \`${d}\``;
-        if(c != null) meta += ` · Kap: \`${c}\``;
-        if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
+      if(data.message){
+        addMessage("bot", data.message);
       }
 
-      addMessage("bot", lastQuestion || "—", meta);
+      if(lastQuestion){
+        let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+        if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
+        if(lastTaskMeta && typeof lastTaskMeta === "object"){
+          const d = lastTaskMeta.difficulty;
+          const c = lastTaskMeta.chapter;
+          if(d != null) meta += ` · Diff: \`${d}\``;
+          if(c != null) meta += ` · Kap: \`${c}\``;
+          if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
+        }
+        addMessage("bot", lastQuestion, meta);
+      } else {
+        addMessage("bot", "—");
+      }
+
       setStatus("Bereit.", "ok");
     }catch(e){
       setStatus(e && e.message ? e.message : String(e), "bad");
@@ -803,64 +773,117 @@
     }
   }
 
+  function renderTutorFeedbackBlock(data){
+    const fb = (data.tutor_feedback || "").trim();
+    const hints = Array.isArray(data.hints) ? data.hints : [];
+    const nq = (data.next_question || "").trim();
+
+    let botText = fb || "Okay — weiter.";
+    if(hints.length){
+      botText += "\n\n**Hinweise:**\n" + hints.map(h => `- ${h}`).join("\n");
+    }
+    if(nq){
+      botText += "\n\n**Nächste Frage:**\n" + nq;
+    }
+    addMessage("bot", botText);
+  }
+
   async function submitAnswer(){
-  const api = normalizeApiUrl(document.getElementById("apiUrl").value);
-  const answer = (document.getElementById("answer").value || "").trim();
+    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+    const answer = (document.getElementById("answer").value || "").trim();
 
-  if(!api){
-    setStatus("Bitte eine API-URL eintragen.", "bad");
-    return;
-  }
-  if(!lastQuestion){
-    setStatus("Noch keine Frage geladen.", "warn");
-    return;
-  }
-  if(!answer){
-    setStatus("Bitte eine Antwort eingeben.", "warn");
-    return;
-  }
-
-  setBusy(true);
-  setStatus("Sende…", null);
-
-  addMessage("user", answer);
-  answerEl.value = "";
-  autoGrow(answerEl);
-
-  const payload = {
-    mode: "submit_answer",
-    student_id: studentId,
-    last_question: lastQuestion,
-    student_answer: answer,
-    topic: lastTopic || "unknown",
-    question_id: lastQuestionId,
-    base_question_id: lastBaseQuestionId || undefined   // ← DAS war neu & wichtig
-  };
-
-  try{
-    const res = await fetch(api, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json().catch(() => ({}));
-    setRaw(data);
-
-    if(!res.ok){
-      setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
-      addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
+    if(!api){
+      setStatus("Bitte eine API-URL eintragen.", "bad");
+      return;
+    }
+    if(!lastQuestion){
+      setStatus("Noch keine Frage geladen.", "warn");
+      return;
+    }
+    if(!answer){
+      setStatus("Bitte eine Antwort eingeben.", "warn");
       return;
     }
 
-    // (Rest deines Codes bleibt unverändert)
+    setBusy(true);
+    setStatus("Sende…", null);
 
-  } catch(e){
-    setStatus(e.message || String(e), "bad");
-  } finally {
-    setBusy(false);
+    addMessage("user", answer);
+    answerEl.value = "";
+    autoGrow(answerEl);
+
+    const payload = {
+      mode: "submit_answer",
+      student_id: studentId,
+      last_question: lastQuestion,
+      student_answer: answer,
+      topic: lastTopic || "unknown",
+      question_id: lastQuestionId,
+      base_question_id: lastBaseQuestionId || undefined
+    };
+
+    try{
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      setRaw(data);
+
+      if(!res.ok){
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
+        return;
+      }
+
+      // Assessment and transitions can return message + rendered_question
+      if(data.message){
+        addMessage("bot", data.message);
+      }
+
+      // If we got a new rendered question (assessment next step or first learning task)
+      if(data.rendered_question){
+        applyServerStateFromQuestionResponse(data);
+
+        let meta = `ID: \`${data.question_id || "—"}\` · Topic: \`${data.topic || "—"}\` · Phase: \`${data.phase || "—"}\``;
+        if(data.base_question_id) meta += ` · Katalog: \`${data.base_question_id}\``;
+        if(data.task_meta){
+          const d = data.task_meta.difficulty;
+          const c = data.task_meta.chapter;
+          if(d != null) meta += ` · Diff: \`${d}\``;
+          if(c != null) meta += ` · Kap: \`${c}\``;
+          if(data.task_meta.title) meta += ` · ${String(data.task_meta.title)}`;
+        }
+
+        addMessage("bot", data.rendered_question, meta);
+        setStatus("Bereit.", "ok");
+        return;
+      }
+
+      // Learning feedback response
+      if(data.tutor_feedback || data.next_question || data.hints){
+        // phase might be returned; keep it in sync
+        lastPhase = data.phase || lastPhase || "learning";
+        setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
+
+        renderTutorFeedbackBlock(data);
+        setStatus("Bereit.", "ok");
+        return;
+      }
+
+      // Fallback
+      addMessage("bot", "Antwort erhalten.");
+      setStatus("Bereit.", "ok");
+
+    } catch(e){
+      setStatus(e.message || String(e), "bad");
+      addMessage("bot", `**Netzwerkfehler:** ${e.message || String(e)}`);
+    } finally {
+      setBusy(false);
+    }
   }
-}
 
   // Textarea auto-grow
   const answerEl = document.getElementById("answer");
