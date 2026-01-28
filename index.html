@@ -1203,6 +1203,19 @@ textarea::-webkit-resizer {
   let lastTopic = "";
   let lastQuestionId = "";
 
+// ---- student_id (persistiert im Browser) ----
+function getStudentId(){
+  const key = "tutor_student_id";
+  let id = localStorage.getItem(key);
+  if(!id){
+    // UUID falls verfügbar, sonst Fallback
+    id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ("sid_" + Math.random().toString(16).slice(2) + Date.now());
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+const studentId = getStudentId();
+  
   // --------- Utils ----------
   function normalizeApiUrl(url){
     url = (url || "").trim();
@@ -1328,7 +1341,7 @@ textarea::-webkit-resizer {
     setBusy(true);
     setStatus("Lade Aufgabe…", null);
 
-    const payload = { mode: "next_question", variant: variant };
+    const payload = { mode: "next_question", variant: variant, student_id: studentId };
     if(topic) payload.topic = topic;
     if(baseId) payload.base_question_id = baseId;
 
@@ -1393,12 +1406,13 @@ textarea::-webkit-resizer {
     autoGrow(answerEl);
     
     const payload = {
-      mode: "submit_answer",
-      last_question: lastQuestion,
-      student_answer: answer,
-      topic: lastTopic || "unknown",
-      question_id: lastQuestionId
-    };
+  mode: "submit_answer",
+  student_id: studentId,
+  last_question: lastQuestion,
+  student_answer: answer,
+  topic: lastTopic || "unknown",
+  question_id: lastQuestionId
+};
 
     try{
       const res = await fetch(api, {
