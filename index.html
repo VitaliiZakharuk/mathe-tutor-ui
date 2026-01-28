@@ -515,13 +515,40 @@
 
   // --------- Robust Math + Markdown pipeline (katex.renderToString) ----------
 
-  function fixVectorLatex(text){
-    let t = text || "";
-    // Fix nested delimiters \(\( ... \)\)
-    t = t.replace(/\\\(\s*\\\(/g, "\\(");
-    t = t.replace(/\\\)\s*\\\)/g, "\\)");
-    return t;
-  }
+ function fixVectorLatex(text){
+  let t = text || "";
+
+  // Fix nested delimiters \(\( ... \)\) (falls noch irgendwo vorhanden)
+  t = t.replace(/\\\(\s*\\\(/g, "\\(");
+  t = t.replace(/\\\)\s*\\\)/g, "\\)");
+
+  // ---- NEW: wrap typical vector notations into inline math ----
+  // 1) ( ... )^{\top}  -> \( ( ... )^{\top} \)
+  //    works for numbers, variables, commas, spaces, minus, etc.
+  t = t.replace(
+    /\(([^()\n]{1,120})\)\s*\^\{\s*\\top\s*\}/g,
+    (_, inside) => `\\((${inside})^{\\top}\\)`
+  );
+
+  // 2) ... )^\top  (rare variant) -> \( ... )^\top \)
+  t = t.replace(
+    /\(([^()\n]{1,120})\)\s*\^\s*\\top\b/g,
+    (_, inside) => `\\((${inside})^{\\top}\\)`
+  );
+
+  // 3) a = ( ... )^{\top} or b = ( ... )^{\top} (capture with label)
+  //    if the line is like "a= (1,0,1)^{\top}" we wrap the whole piece
+  t = t.replace(
+    /(^|[\s,;:])([a-zA-Z])\s*=\s*\\?\(?\s*\(([^()\n]{1,120})\)\s*\^\{\s*\\top\s*\}\s*\\?\)?/g,
+    (m, pre, v, inside) => `${pre}\\(${v}=(${inside})^{\\top}\\)`
+  );
+
+  // 4) Clean up accidental double-wrapping (very defensive)
+  t = t.replace(/\\\(\s*\\\(/g, "\\(").replace(/\\\)\s*\\\)/g, "\\)");
+
+  return t;
+}
+
 
   function wrapLatexEnvironments(text){
     let t = text || "";
@@ -794,70 +821,72 @@
     setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
   }
 
-  async function loadQuestion(manual=false){
-    const api = normalizeApiUrl(document.getElementById("apiUrl").value);
-    const topic = document.getElementById("topic").value || undefined;
-    const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
+  function loadQuestion(manual=false){
+  const api = normalizeApiUrl(document.getElementById("apiUrl").value);
+  const topic = document.getElementById("topic").value || undefined;
+  const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
 
-    if(!api){
-      setStatus("Bitte eine API-URL eintragen.", "bad");
+  if(!api){
+    setStatus("Bitte eine API-URL eintragen.", "bad");
+    return;
+  }
+
+  setBusy(true);
+  setStatus(manual ? "Lade…" : "Starte…", null);
+
+  const payload = { mode: "next_question", student_id: studentId };
+  if(topic) payload.topic = topic;
+  if(baseId) payload.base_question_id = baseId;
+
+  fetch(api, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(async (res) => {
+    const data = await res.json().catch(() => ({}));
+    setRaw(data);
+
+    if(!res.ok){
+      setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+      addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
       return;
     }
 
-    setBusy(true);
-    setStatus(manual ? "Lade…" : "Starte…", null);
+    applyServerStateFromQuestionResponse(data);
 
-    const payload = { mode: "next_question", student_id: studentId };
-    if(topic) payload.topic = topic;
-    if(baseId) payload.base_question_id = baseId;
-
-    try{
-      const res = await fetch(api, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json().catch(() => ({}));
-      setRaw(data);
-
-      if(!res.ok){
-        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
-        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
-        return;
-      }
-
-      applyServerStateFromQuestionResponse(data);
-
-      if(data.message){
-        addMessage("bot", data.message);
-      }
-
-      if(lastQuestion){
-        let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
-        if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
-        if(lastTaskMeta && typeof lastTaskMeta === "object"){
-          const d = lastTaskMeta.difficulty;
-          const c = lastTaskMeta.chapter;
-          if(d != null) meta += ` · Diff: \`${d}\``;
-          if(c != null) meta += ` · Kap: \`${c}\``;
-          if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
-        }
-
-        // IMPORTANT: pass topic to renderer
-        addMessage("bot", lastQuestion, meta, lastTopic);
-      } else {
-        addMessage("bot", "—");
-      }
-
-      setStatus("Bereit.", "ok");
-    }catch(e){
-      setStatus(e && e.message ? e.message : String(e), "bad");
-      addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
-    }finally{
-      setBusy(false);
+    if(data.message){
+      addMessage("bot", data.message);
     }
-  }
+
+    if(lastQuestion){
+      let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+      if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
+      if(lastTaskMeta && typeof lastTaskMeta === "object"){
+        const d = lastTaskMeta.difficulty;
+        const c = lastTaskMeta.chapter;
+        if(d != null) meta += ` · Diff: \`${d}\``;
+        if(c != null) meta += ` · Kap: \`${c}\``;
+        if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
+      }
+
+      // 2) WICHTIG: Topic wird an addMessage übergeben (für vektoren-spezifische LaTeX-Fixes)
+      addMessage("bot", lastQuestion, meta, lastTopic);
+    } else {
+      addMessage("bot", "—");
+    }
+
+    setStatus("Bereit.", "ok");
+  })
+  .catch((e) => {
+    setStatus(e && e.message ? e.message : String(e), "bad");
+    addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
+  })
+  .finally(() => {
+    setBusy(false);
+  });
+}
+
 
   function renderTutorFeedbackBlock(data){
     const fb = (data.tutor_feedback || "").trim();
