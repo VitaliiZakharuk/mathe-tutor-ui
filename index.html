@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mathe-Tutor – Chat UI</title>
 
-  <!-- KaTeX (LaTeX Rendering) -->
+  <!-- KaTeX -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 
   <!-- Markdown + Sanitizer -->
   <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
@@ -514,86 +513,110 @@
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
-  // --------- LaTeX helpers ----------
-  // KaTeX auto-render only processes LaTeX inside delimiters.
-  // Some tasks contain naked environments like \begin{pmatrix}...\end{pmatrix}.
-  // We wrap ONLY complete \begin...\end blocks (and optionally single formula-like lines) in $$...$$.
-  function wrapLatexConservatively(text){
-    let t = text || "";
+  // --------- Robust Math + Markdown pipeline (katex.renderToString) ----------
 
-    // Wrap complete LaTeX environments
-    t = t.replace(/\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}/g, (m) => {
-      return `\n$$\n${m}\n$$\n`;
-    });
-
-    // Optional: wrap standalone formula-like lines (conservative)
-    const lines = t.split("\n");
-    const out = [];
-    const looksMath = (s) =>
-      /\\(frac|sqrt|cdot|times|sum|int|vec|hat|overrightarrow|mathbf|mathrm|left|right)\b/.test(s) ||
-      /[=]/.test(s);
-
-    for (const line of lines){
-      const l = line || "";
-      const hasDelim = /(\$\$|\$|\\\(|\\\)|\\\[|\\\])/.test(l);
-      const hasEnv = /\\begin\{|\}*\\end\{/.test(l);
-      if(!hasDelim && !hasEnv && looksMath(l) && l.includes("\\")){
-        out.push(`$$${l}$$`);
-      } else {
-        out.push(l);
-      }
-    }
-
-    return out.join("\n");
-  }
-
-  // Fix ONLY for vector tasks:
-  // Some vector tasks have nested delimiters like \(\(x,y,z)^\top\), which breaks auto-render.
   function fixVectorLatex(text){
     let t = text || "";
-
-    // Fix nested \(\(  and \)\)
+    // Fix nested delimiters \(\( ... \)\)
     t = t.replace(/\\\(\s*\\\(/g, "\\(");
     t = t.replace(/\\\)\s*\\\)/g, "\\)");
-
-    // Defensive: collapse accidental empty display blocks
-    t = t.replace(/\$\$\s*\$\$/g, "$$");
-
     return t;
   }
 
-  // Markdown -> HTML -> sanitize -> render LaTeX
-  function renderMarkdownAndLatex(containerEl, text, topic=null){
-    let prepared = text || "";
-
-    // Only patch vector tasks; complex numbers remain unchanged
-    if(topic === "vektoren"){
-      prepared = fixVectorLatex(prepared);
-    }
-
-    prepared = wrapLatexConservatively(prepared);
-
-    const html = window.marked.parse(prepared, { breaks: true, gfm: true });
-    const clean = window.DOMPurify.sanitize(html, {
-      USE_PROFILES: { html: true },
+  function wrapLatexEnvironments(text){
+    let t = text || "";
+    t = t.replace(/\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}/g, (m) => {
+      return `\n$$\n${m}\n$$\n`;
     });
-
-    containerEl.innerHTML = clean;
-
-    if(window.renderMathInElement){
-      window.renderMathInElement(containerEl, {
-        delimiters: [
-          {left: "$$", right: "$$", display: true},
-          {left: "$", right: "$", display: false},
-          {left: "\\(", right: "\\)", display: false},
-          {left: "\\[", right: "\\]", display: true}
-        ],
-        throwOnError: false
-      });
-    }
+    return t;
   }
 
-  // UPDATED: addMessage supports topic so we can render topic-specific LaTeX fixes
+  function renderMarkdownWithKaTeX(text, topic=null){
+    let formattedText = text || "";
+
+    // topic-specific sanitation
+    if(topic === "vektoren"){
+      formattedText = fixVectorLatex(formattedText);
+    }
+
+    formattedText = wrapLatexEnvironments(formattedText);
+
+    // 1) Protect math with placeholders before markdown
+    const mathPlaceholder = [];
+    let idx = 0;
+
+    // A) Block $$...$$
+    formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+      mathPlaceholder.push(match);
+      return `@@MATH_BLOCK_${idx++}@@`;
+    });
+
+    // B) Block \[...\]
+    formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+      mathPlaceholder.push(match);
+      return `@@MATH_BLOCK_${idx++}@@`;
+    });
+
+    // C) Inline \( ... \)
+    formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+      mathPlaceholder.push(match);
+      return `@@MATH_INLINE_${idx++}@@`;
+    });
+
+    // D) Inline $...$ (conservative; avoids $$)
+    formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
+      const token = `@@MATH_INLINE_${idx}@@`;
+      mathPlaceholder.push(`$${inner}$`);
+      idx++;
+      return `${pre}${token}`;
+    });
+
+    // 2) Markdown parse
+    if(typeof marked !== "undefined"){
+      try{
+        marked.setOptions({ breaks: true, gfm: true });
+        formattedText = marked.parse(formattedText);
+      }catch(e){
+        console.error("Marked Fehler:", e);
+      }
+    }
+
+    // 3) Sanitize HTML
+    if(typeof DOMPurify !== "undefined"){
+      formattedText = DOMPurify.sanitize(formattedText, { USE_PROFILES: { html: true } });
+    }
+
+    // 4) Restore math placeholders using KaTeX
+    formattedText = formattedText.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, id) => {
+      const original = mathPlaceholder[Number(id)] || "";
+      const inner = original
+        .replace(/^\$\$/,"").replace(/\$\$$/,"")
+        .replace(/^\\\[/,"").replace(/\\\]$/,"");
+      try{
+        return katex.renderToString(inner, { displayMode: true, throwOnError: false });
+      }catch{
+        return original;
+      }
+    });
+
+    formattedText = formattedText.replace(/@@MATH_INLINE_(\d+)@@/g, (match, id) => {
+      const original = mathPlaceholder[Number(id)] || "";
+      const inner = original
+        .replace(/^\\\(/,"").replace(/\\\)$/,"")
+        .replace(/^\$/,"").replace(/\$$/,"");
+      try{
+        return katex.renderToString(inner, { displayMode: false, throwOnError: false });
+      }catch{
+        return original;
+      }
+    });
+
+    // 5) Optional: highlight [[term]]
+    formattedText = formattedText.replace(/\[\[(.*?)\]\]/g, '<span class="term">$1</span>');
+
+    return formattedText;
+  }
+
   function addMessage(role, text, small=null, topic=null){
     const wrap = document.createElement("div");
     wrap.className = "msgRow " + (role === "user" ? "user" : "bot");
@@ -603,7 +626,14 @@
 
     const content = document.createElement("div");
     content.className = "md";
-    renderMarkdownAndLatex(content, text || "", topic);
+
+    if(role === "bot"){
+      content.innerHTML = renderMarkdownWithKaTeX(text || "", topic);
+    }else{
+      // If you want markdown for user too, replace this with marked+purify.
+      content.textContent = text || "";
+    }
+
     b.appendChild(content);
 
     if(small){
@@ -621,7 +651,8 @@
   }
 
   function libsReady(){
-    return !!(window.marked && window.DOMPurify && window.katex && window.renderMathInElement);
+    // auto-render is NOT needed anymore; only katex + marked + DOMPurify
+    return !!(window.marked && window.DOMPurify && window.katex);
   }
 
   async function waitForLibs(){
@@ -679,9 +710,9 @@
 
   // --------- Start lines ----------
   const START_LINES = [
-    "Los geht’s, wir bringen Struktur in Mathe, Schritt für Schritt.",
+    "Los geht’s — wir bringen Struktur in Mathe, Schritt für Schritt.",
     "Kurzer Check-in, dann starten wir direkt mit passenden Aufgaben.",
-    "Erst einschätzen, dann gezielt trainieren.",
+    "Heute wird’s sauber: erst einschätzen, dann gezielt trainieren.",
     "Wir machen’s effizient: ein paar Fragen, dann die richtigen Aufgaben."
   ];
 
@@ -813,7 +844,7 @@
           if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
         }
 
-        // UPDATED: pass topic for topic-specific LaTeX handling
+        // IMPORTANT: pass topic to renderer
         addMessage("bot", lastQuestion, meta, lastTopic);
       } else {
         addMessage("bot", "—");
@@ -910,7 +941,7 @@
           if(data.task_meta.title) meta += ` · ${String(data.task_meta.title)}`;
         }
 
-        // UPDATED: pass topic for topic-specific LaTeX handling
+        // IMPORTANT: pass topic to renderer
         addMessage("bot", data.rendered_question, meta, data.topic || lastTopic);
         setStatus("Bereit.", "ok");
         return;
@@ -952,16 +983,17 @@
     }
   });
 
-  // Init (AUTO-START)
+  // --------- Init (AUTO-START) ----------
   (async function init(){
     await waitForLibs();
 
     const start = START_LINES[Math.floor(Math.random() * START_LINES.length)];
     addMessage("bot", start);
 
-    setStatus(libsReady() ? "Bereit. (Markdown + LaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
+    setStatus(libsReady() ? "Bereit. (Markdown + KaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
     await loadQuestion(false);
   })();
 </script>
 </body>
 </html>
+
