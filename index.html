@@ -36,10 +36,7 @@
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
-
     *{box-sizing:border-box}
-    html, body{height:100%}
-
     body{
       margin:0;
       font-family:var(--sans);
@@ -48,7 +45,6 @@
                   var(--bg);
       color:var(--text);
     }
-
     .app{
       max-width: 980px;
       margin: 0 auto;
@@ -72,11 +68,9 @@
       backdrop-filter: blur(10px);
       box-shadow: var(--shadow);
     }
-
     .title{display:flex; flex-direction:column; gap:2px;}
     .title h1{font-size:16px; margin:0; letter-spacing:.2px;}
     .title p{margin:0; font-size:12px; color:var(--muted);}
-
     .pill{
       display:inline-flex; align-items:center; gap:8px;
       padding:8px 10px;
@@ -86,9 +80,7 @@
       color:var(--muted);
       background: rgba(17,28,58,.55);
     }
-
     .mono{font-family:var(--mono)}
-
     .btn{
       border:0;
       border-radius: 12px;
@@ -96,22 +88,16 @@
       font-weight:700;
       cursor:pointer;
       color:white;
-      background: linear-gradient(135deg, var(--user), var(--user2));
+      background: rgba(148,163,184,.12);
+      border: 1px solid var(--border);
     }
     .btn:hover{filter:brightness(1.07)}
-    .btn.secondary{
-      background: rgba(148,163,184,.12);
-      color: var(--text);
-      border: 1px solid var(--border);
-      font-weight: 600;
-    }
-    .btn.secondary:hover{background: rgba(148,163,184,.18)}
     .btn:disabled{opacity:.55; cursor:not-allowed;}
 
-    /* Icon buttons (ChatGPT-like round controls) */
+    /* Round icon buttons */
     .iconBtn{
-      width: 44px;
-      height: 44px;
+      width: 42px;
+      height: 42px;
       border-radius: 999px;
       border: 0;
       display: inline-flex;
@@ -122,7 +108,6 @@
       background: linear-gradient(135deg, var(--user), var(--user2));
       box-shadow: 0 10px 18px rgba(0,0,0,.18);
       flex: 0 0 auto;
-      user-select:none;
     }
     .iconBtn:hover{ filter: brightness(1.07); }
     .iconBtn.secondary{
@@ -132,10 +117,8 @@
     }
     .iconBtn.secondary:hover{ background: rgba(148,163,184,.18); }
     .iconBtn:disabled{ opacity: .55; cursor: not-allowed; }
-
-    /* Mic active */
     #btnMic.listening{
-      outline: 2px solid rgba(34,197,94,.70);
+      outline: 2px solid rgba(34,197,94,.65);
       outline-offset: 2px;
     }
 
@@ -147,34 +130,25 @@
       box-shadow: var(--shadow);
       overflow:hidden;
     }
-
     .settingsHead{
       display:flex; align-items:center; justify-content:space-between;
       padding:12px 14px;
       cursor:pointer;
       user-select:none;
     }
-
     .settingsHead .left{display:flex; flex-direction:column; gap:2px;}
     .settingsHead .left .hint{font-size:12px; color:var(--muted);}
-
     .settingsBody{
       padding: 0 14px 14px;
       display:none;
       gap: 12px;
     }
     .settings.open .settingsBody{display:grid}
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
+    .grid{display:grid; grid-template-columns: 1fr; gap: 12px;}
     @media(min-width:860px){
       .grid.cols2{grid-template-columns: 1.5fr .5fr}
       .grid.cols3{grid-template-columns: 1fr 1fr 1fr}
     }
-
     label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
     input[type="text"], select{
       width:100%;
@@ -197,11 +171,7 @@
       overflow:hidden;
       display:flex;
       flex-direction:column;
-
-      /* key: allow children to shrink correctly */
-      min-height: 0;
     }
-
     .chatHeader{
       padding: 10px 12px;
       display:flex;
@@ -210,7 +180,6 @@
       border-bottom:1px solid var(--border);
       background: rgba(17,28,58,.45);
     }
-
     .chatHeader .meta{display:flex; gap:8px; flex-wrap:wrap;}
     .badge{
       font-size:12px;
@@ -221,10 +190,6 @@
       background: rgba(17,28,58,.35);
     }
 
-    /* IMPORTANT:
-       - messages is flex:1 and scrolls
-       - composer grows upward; messages shrinks accordingly
-    */
     .messages{
       padding: 14px;
       overflow:auto;
@@ -234,10 +199,8 @@
       flex: 1 1 auto;
       min-height: 0;
     }
-
     .msgRow{display:flex}
     .msgRow.user{justify-content:flex-end}
-
     .bubble{
       max-width: 82ch;
       padding: 12px 12px;
@@ -246,7 +209,6 @@
       line-height: 1.45;
       box-shadow: 0 10px 18px rgba(0,0,0,.18);
     }
-
     .bubble.bot{
       background: rgba(17,28,58,.6);
       color: var(--text);
@@ -258,7 +220,6 @@
       border: 1px solid rgba(255,255,255,.14);
       border-top-right-radius: 10px;
     }
-
     .bubble .small{
       display:block;
       margin-top:8px;
@@ -291,7 +252,12 @@
       margin: 10px 0;
       color:#cbd5e1;
     }
-    .bubble .md pre code{background: transparent; border: 0; padding: 0; font-size: 12px;}
+    .bubble .md pre code{
+      background: transparent;
+      border: 0;
+      padding: 0;
+      font-size: 12px;
+    }
     .bubble .md blockquote{
       margin: 10px 0;
       padding: 8px 10px;
@@ -299,25 +265,6 @@
       background: rgba(148,163,184,.08);
       border-radius: 10px;
       color: rgba(229,231,235,.95);
-    }
-    .bubble .md table{
-      width:100%;
-      border-collapse: collapse;
-      margin: 10px 0;
-      overflow:hidden;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,.18);
-    }
-    .bubble .md th, .bubble .md td{
-      border-bottom: 1px solid rgba(148,163,184,.18);
-      padding: 8px 10px;
-      text-align:left;
-      vertical-align:top;
-    }
-    .bubble .md th{
-      background: rgba(148,163,184,.10);
-      color: rgba(229,231,235,.95);
-      font-weight: 700;
     }
 
     /* KaTeX tweaks */
@@ -339,7 +286,7 @@
     .statusDot.bad{background: var(--bad)}
     .statusDot.warn{background: var(--warn)}
 
-    /* Composer (grows upward) */
+    /* Composer */
     .composer{
       border-top:1px solid var(--border);
       background: rgba(17,28,58,.45);
@@ -347,20 +294,15 @@
       display:flex;
       gap: 10px;
       align-items:flex-end;
-
-      /* keep it at bottom, allow growth */
-      flex: 0 0 auto;
     }
-
     textarea{
       width:100%;
       min-height: 44px;
-      max-height: none;      /* no ceiling -> grows */
-      overflow: hidden;      /* no inner scrollbar */
-      resize: none;          /* remove resize handle */
+      max-height: none;
+      overflow: hidden;
+      resize: none;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-
       padding: 10px 12px;
       border-radius: 14px;
       border: 1px solid var(--border);
@@ -369,7 +311,7 @@
       color: var(--text);
       line-height: 1.4;
     }
-    textarea::-webkit-resizer{ display:none; }
+    textarea::-webkit-resizer{display:none;}
 
     details{
       border:1px solid var(--border);
@@ -396,18 +338,21 @@
     }
   </style>
 </head>
-
 <body>
   <div class="app">
 
     <div class="top">
       <div class="title">
         <h1>Mathe-Tutor</h1>
-        <p>Chat-UI: Aufgabe holen → Antwort senden → Feedback erhalten</p>
+        <p>Assessment → Lernmodus (automatisch)</p>
       </div>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <span class="pill"><span>Route:</span> <span class="mono">POST /chat</span></span>
-        <button class="btn secondary" id="btnNew" type="button" onclick="loadQuestion()">Neue Aufgabe</button>
+
+        <!-- Button bleibt als "manuell neue Aufgabe holen", aber nicht mehr nötig zum Start -->
+        <button class="btn" id="btnNew" onclick="loadQuestion(true)" title="Manuell neue Aufgabe holen (optional)">
+          Neue Aufgabe
+        </button>
       </div>
     </div>
 
@@ -419,7 +364,6 @@
         </div>
         <div class="pill"><span class="mono" id="settingsState">geschlossen</span></div>
       </div>
-
       <div class="settingsBody">
         <div class="grid cols2">
           <div>
@@ -449,7 +393,7 @@
             <input id="baseId" type="text" placeholder="z. B. vektoren:12" />
           </div>
           <div style="display:flex; gap:10px; align-items:flex-end;">
-            <button class="btn" style="width:100%;" type="button" onclick="loadQuestion()">Aufgabe holen</button>
+            <button class="btn" style="width:100%;" onclick="loadQuestion(true)">Aufgabe holen</button>
           </div>
         </div>
 
@@ -464,6 +408,7 @@
         <div class="meta">
           <span class="badge">Question-ID: <span class="mono" id="qid">—</span></span>
           <span class="badge">Topic: <span class="mono" id="qtopic">—</span></span>
+          <span class="badge">Phase: <span class="mono" id="phase">—</span></span>
         </div>
         <div class="meta">
           <span class="badge" id="conn">bereit</span>
@@ -471,12 +416,8 @@
       </div>
 
       <div class="messages" id="messages"></div>
+      <div class="statusLine"><span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span></div>
 
-      <div class="statusLine">
-        <span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span>
-      </div>
-
-      <!-- ChatGPT-like composer -->
       <div class="composer">
         <button class="iconBtn secondary" id="btnMic" type="button"
                 title="Spracherkennung starten/stoppen"
@@ -489,8 +430,7 @@
         <textarea id="answer" rows="1"
                   placeholder="Schreibe deine Antwort… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
 
-        <button class="iconBtn" id="btnSend" type="button"
-                title="Senden" onclick="submitAnswer()">
+        <button class="iconBtn" id="btnSend" type="button" title="Senden" onclick="submitAnswer()">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path fill="currentColor" d="M3.4 20.2 21 12 3.4 3.8 3 10l10 2-10 2 .4 6.2Z"/>
           </svg>
@@ -506,34 +446,23 @@
   </div>
 
 <script>
-  // ----------------------------
-  // Build tag (helps you see if you're really loading the newest file)
-  // ----------------------------
-  console.log("UI_BUILD:", "2026-01-28 cleaned single-source + student_id + autogrow");
-
   // --------- State ----------
   let lastQuestion = "";
   let lastTopic = "";
   let lastQuestionId = "";
+  let lastPhase = "";
 
-  // ---- student_id (persisted) ----
+  // ---- student_id (persistiert im Browser) ----
   function getStudentId(){
     const key = "tutor_student_id";
     let id = localStorage.getItem(key);
     if(!id){
-      id = (window.crypto && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : ("sid_" + Math.random().toString(16).slice(2) + Date.now());
+      id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : ("sid_" + Math.random().toString(16).slice(2) + Date.now());
       localStorage.setItem(key, id);
     }
     return id;
   }
   const studentId = getStudentId();
-  console.log("studentId:", studentId);
-
-  // --------- DOM refs (ONLY ONCE) ----------
-  const answerEl = document.getElementById("answer");
-  const messagesEl = document.getElementById("messages");
 
   // --------- Utils ----------
   function normalizeApiUrl(url){
@@ -566,56 +495,29 @@
   }
 
   function setBusy(busy){
-    const send = document.getElementById("btnSend");
-    const neu  = document.getElementById("btnNew");
-    const mic  = document.getElementById("btnMic");
-
-    if(send) send.disabled = busy;
-    if(neu)  neu.disabled  = busy;
-    if(mic)  mic.disabled  = busy;
-
+    document.getElementById("btnSend").disabled = busy;
+    document.getElementById("btnNew").disabled = busy;
+    const mic = document.getElementById("btnMic");
+    if(mic) mic.disabled = busy;
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
-  // --------- Auto-grow textarea (composer grows upward) ----------
-  function autoGrow(el){
-    el.style.height = "0px";
-    el.style.height = el.scrollHeight + "px";
-  }
-
-  answerEl.addEventListener("input", () => {
-    requestAnimationFrame(() => autoGrow(answerEl));
-  });
-
-  // Enter = senden, Shift+Enter = newline
-  answerEl.addEventListener("keydown", (e) => {
-    if(e.key === "Enter" && !e.shiftKey){
-      e.preventDefault();
-      submitAnswer();
-    }
-  });
-
-  requestAnimationFrame(() => autoGrow(answerEl));
-
-  // --------- Markdown -> HTML -> sanitize -> render LaTeX ----------
+  // Markdown -> HTML -> sanitize -> render LaTeX
   function renderMarkdownAndLatex(containerEl, text){
     const md = (text || "");
-
     const html = window.marked.parse(md, { breaks: true, gfm: true });
-
     const clean = window.DOMPurify.sanitize(html, {
       USE_PROFILES: { html: true },
       ADD_TAGS: ["span", "math", "annotation", "semantics", "mrow", "mi", "mo", "mn"],
       ADD_ATTR: ["class", "style", "aria-hidden", "role"]
     });
-
     containerEl.innerHTML = clean;
 
     if(window.renderMathInElement){
       window.renderMathInElement(containerEl, {
         delimiters: [
           {left: "$$", right: "$$", display: true},
-          {left: "$",  right: "$",  display: false},
+          {left: "$", right: "$", display: false},
           {left: "\\(", right: "\\)", display: false},
           {left: "\\[", right: "\\]", display: true}
         ],
@@ -644,12 +546,12 @@
     }
 
     wrap.appendChild(b);
-    messagesEl.appendChild(wrap);
+    document.getElementById("messages").appendChild(wrap);
 
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    const sc = document.getElementById("messages");
+    sc.scrollTop = sc.scrollHeight;
   }
 
-  // Wait until libs loaded (scripts are defer)
   function libsReady(){
     return !!(window.marked && window.DOMPurify && window.katex && window.renderMathInElement);
   }
@@ -662,14 +564,23 @@
     }
   }
 
-  // --------- Dictation (Web Speech API) ----------
+  function setHeader(qid, topic, phase){
+    document.getElementById("qid").textContent = qid || "—";
+    document.getElementById("qtopic").textContent = topic || "—";
+    document.getElementById("phase").textContent = phase || "—";
+  }
+
+  // --------- Motivierende Starttexte (kurz, zufällig) ----------
+  const START_LINES = [
+    "Los geht’s — wir bringen Struktur in Mathe, Schritt für Schritt.",
+    "Kurzer Check-in, dann starten wir direkt mit passenden Aufgaben.",
+    "Heute wird’s sauber: erst einschätzen, dann gezielt trainieren.",
+    "Wir machen’s effizient: ein paar Fragen, dann die richtigen Aufgaben."
+  ];
+
+  // --------- Dictation ----------
   let recognition = null;
   let dictating = false;
-
-  function updateMicUI(){
-    const micBtn = document.getElementById("btnMic");
-    if(micBtn) micBtn.classList.toggle("listening", dictating);
-  }
 
   function toggleDictation(){
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -728,11 +639,13 @@
     }
   }
 
-  // expose for onclick
-  window.toggleDictation = toggleDictation;
+  function updateMicUI(){
+    const micBtn = document.getElementById("btnMic");
+    if(micBtn) micBtn.classList.toggle("listening", dictating);
+  }
 
   // --------- API ----------
-  async function loadQuestion(){
+  async function loadQuestion(manual=false){
     const api = normalizeApiUrl(document.getElementById("apiUrl").value);
     const topic = document.getElementById("topic").value || undefined;
     const variant = document.getElementById("variant").value === "true";
@@ -744,12 +657,11 @@
     }
 
     setBusy(true);
-    setStatus("Lade Aufgabe…", null);
+    setStatus(manual ? "Lade Aufgabe…" : "Starte…", null);
 
     const payload = { mode: "next_question", variant: variant, student_id: studentId };
     if(topic) payload.topic = topic;
     if(baseId) payload.base_question_id = baseId;
-    console.log("next_question payload:", payload);
 
     try{
       const res = await fetch(api, {
@@ -762,43 +674,41 @@
       setRaw(data);
 
       if(!res.ok){
-        const msg = (data && data.error) ? data.error : ("HTTP " + res.status);
-        setStatus(msg, "bad");
-        addMessage("bot", `**Fehler:** ${msg}`);
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
         return;
       }
 
+      // Standardisiert: Backend liefert phase/topic/question_id/rendered_question
       lastQuestion = data.rendered_question || "";
       lastTopic = data.topic || topic || "";
       lastQuestionId = data.question_id || "";
+      lastPhase = data.phase || "";
 
-      document.getElementById("qid").textContent = lastQuestionId || "—";
-      document.getElementById("qtopic").textContent = lastTopic || "—";
+      setHeader(lastQuestionId, lastTopic, lastPhase);
 
-      const meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\`${data.used_variant ? " · **Variante**" : ""}`;
+      const meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
       addMessage("bot", lastQuestion || "—", meta);
 
-      setStatus("Aufgabe geladen. Antworte unten im Feld.", "ok");
+      setStatus("Bereit.", "ok");
     }catch(e){
-      const msg = (e && e.message) ? e.message : String(e);
-      setStatus(msg, "bad");
-      addMessage("bot", `**Netzwerkfehler:** ${msg}`);
+      setStatus(e && e.message ? e.message : String(e), "bad");
+      addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
     }finally{
       setBusy(false);
     }
   }
-  window.loadQuestion = loadQuestion;
 
   async function submitAnswer(){
     const api = normalizeApiUrl(document.getElementById("apiUrl").value);
-    const answer = (answerEl.value || "").trim();
+    const answer = (document.getElementById("answer").value || "").trim();
 
     if(!api){
       setStatus("Bitte eine API-URL eintragen.", "bad");
       return;
     }
     if(!lastQuestion){
-      setStatus("Bitte zuerst eine Aufgabe laden.", "warn");
+      setStatus("Noch keine Frage geladen.", "warn");
       return;
     }
     if(!answer){
@@ -807,11 +717,9 @@
     }
 
     setBusy(true);
-    setStatus("Sende Antwort…", null);
+    setStatus("Sende…", null);
 
     addMessage("user", answer);
-
-    // clear input and shrink back
     answerEl.value = "";
     autoGrow(answerEl);
 
@@ -823,7 +731,6 @@
       topic: lastTopic || "unknown",
       question_id: lastQuestionId
     };
-    console.log("submit_answer payload:", payload);
 
     try{
       const res = await fetch(api, {
@@ -836,48 +743,89 @@
       setRaw(data);
 
       if(!res.ok){
-        const msg = (data && data.error) ? data.error : ("HTTP " + res.status);
-        setStatus(msg, "bad");
-        addMessage("bot", `**Fehler:** ${msg}`);
+        setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
+        addMessage("bot", `**Fehler:** ${(data && data.error) ? data.error : ("HTTP " + res.status)}`);
         return;
       }
 
+      const phase = data.phase || lastPhase || "";
+
+      // --- Assessment: KEIN "Richtig/Falsch", sondern kurz bestätigen + nächste Frage anzeigen ---
+      if(phase === "assessment"){
+        if(data.tutor_feedback){
+          addMessage("bot", data.tutor_feedback);
+        } else {
+          addMessage("bot", "Danke! Nächste Einschätzungsfrage kommt…");
+        }
+
+        // Backend liefert die nächste Frage direkt (oder beim letzten Schritt die erste Lern-Aufgabe)
+        if(data.rendered_question){
+          lastQuestion = data.rendered_question || "";
+          lastTopic = data.topic || "assessment";
+          lastQuestionId = data.question_id || lastQuestionId;
+          lastPhase = data.phase || "assessment";
+
+          setHeader(lastQuestionId, lastTopic, lastPhase);
+
+          const meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+          addMessage("bot", lastQuestion, meta);
+        }
+
+        setStatus("Bereit.", "ok");
+        return;
+      }
+
+      // --- Learning: wie gehabt mit Feedback (Richtig/Nicht ganz) ---
       const correct = !!data.correct;
       const hints = Array.isArray(data.hints) ? data.hints.filter(Boolean) : [];
 
       const head = correct ? "✅ **Richtig**" : "❌ **Nicht ganz**";
-      const bodyParts = [];
-      if(data.tutor_feedback) bodyParts.push(data.tutor_feedback);
+      const parts = [];
+      if(data.tutor_feedback) parts.push(data.tutor_feedback);
       if(hints.length){
-        bodyParts.push("**Hinweise:**\n" + hints.map(h => `- ${h}`).join("\n"));
+        parts.push("**Hinweise:**\n" + hints.map(h => `- ${h}`).join("\n"));
       }
+      addMessage("bot", [head, ...parts].filter(Boolean).join("\n\n"));
 
-      addMessage("bot", [head, ...bodyParts].filter(Boolean).join("\n\n"), correct ? "Status: korrekt" : "Status: falsch");
       setStatus("Feedback erhalten.", "ok");
     }catch(e){
-      const msg = (e && e.message) ? e.message : String(e);
-      setStatus(msg, "bad");
-      addMessage("bot", `**Netzwerkfehler:** ${msg}`);
+      setStatus(e && e.message ? e.message : String(e), "bad");
+      addMessage("bot", `**Netzwerkfehler:** ${e && e.message ? e.message : String(e)}`);
     }finally{
       setBusy(false);
     }
   }
-  window.submitAnswer = submitAnswer;
 
-  // --------- Init ----------
+  // Textarea auto-grow
+  const answerEl = document.getElementById("answer");
+  function autoGrow(el){
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+  answerEl.addEventListener("input", () => requestAnimationFrame(() => autoGrow(answerEl)));
+
+  // Enter = senden, Shift+Enter = neue Zeile
+  answerEl.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      submitAnswer();
+    }
+  });
+
+  // Init (AUTO-START: direkt Assessment/erste Frage holen)
   (async function init(){
     await waitForLibs();
 
-    addMessage("bot",
-      "Hi! Klick auf **„Neue Aufgabe“**. Du kannst Markdown und LaTeX schreiben.\n\n" +
-      "Beispiele:\n" +
-      "- Inline: $a^2+b^2=c^2$\n" +
-      "- Block:\n\n$$\\int_0^1 x^2\\,dx = \\frac{1}{3}$$"
-    );
+    const start = START_LINES[Math.floor(Math.random() * START_LINES.length)];
+    addMessage("bot", start);
 
     setStatus(libsReady() ? "Bereit. (Markdown + LaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
+
+    // direkt starten (kein Klick nötig)
+    await loadQuestion(false);
   })();
 </script>
 </body>
 </html>
+
 
