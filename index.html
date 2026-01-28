@@ -944,19 +944,32 @@ Copy code
       align-items:flex-end;
     }
     textarea{
-      width:100%;
-      min-height: 44px;
-      max-height: 180px;
-      resize: vertical;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      outline:none;
-      background: rgba(15,23,42,.65);
-      color: var(--text);
-      line-height: 1.4;
-    }
+  width:100%;
+  min-height: 44px;
 
+  /* wächst automatisch – keine feste Obergrenze */
+  max-height: none;
+
+  /* keine Scrollbar / kein manuelles Resizing */
+  overflow: hidden;
+  resize: none;
+
+  /* sauberes Umbrechen, wichtig für autoGrow */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  outline:none;
+  background: rgba(15,23,42,.65);
+  color: var(--text);
+  line-height: 1.4;
+}
+textarea::-webkit-resizer {
+  display: none;
+}
+  
     details{
       border:1px solid var(--border);
       border-radius: var(--radius);
