@@ -507,6 +507,7 @@
 
   function setBusy(busy){
     document.getElementById("btnSend").disabled = busy;
+    // New task is only allowed in learning; if assessment, it stays disabled below.
     const newBtn = document.getElementById("btnNew");
     if(newBtn) newBtn.disabled = busy || (lastPhase === "assessment");
     const mic = document.getElementById("btnMic");
@@ -514,43 +515,9 @@
     document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
-  // --------- NEW: Conservative LaTeX wrapping ----------
-  // KaTeX auto-render only processes LaTeX inside delimiters.
-  // Some tasks contain naked environments like \begin{pmatrix}...\end{pmatrix}.
-  // We wrap ONLY complete \begin...\end blocks (and optionally single formula-like lines) in $$...$$.
-  function wrapLatexConservatively(text){
-    let t = text || "";
-
-    // Wrap complete LaTeX environments
-    t = t.replace(/\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}/g, (m) => {
-      return `\n$$\n${m}\n$$\n`;
-    });
-
-    // Optional: wrap standalone formula-like lines (conservative)
-    const lines = t.split("\n");
-    const out = [];
-    const looksMath = (s) =>
-      /\\(frac|sqrt|cdot|times|sum|int|vec|hat|overrightarrow|mathbf|mathrm|left|right)\b/.test(s) ||
-      /[=]/.test(s);
-
-    for (const line of lines){
-      const l = line || "";
-      const hasDelim = /(\$\$|\$|\\\(|\\\)|\\\[|\\\])/.test(l);
-      const hasEnv = /\\begin\{|\}*\\end\{/.test(l);
-      if(!hasDelim && !hasEnv && looksMath(l) && l.includes("\\")){
-        out.push(`$$${l}$$`);
-      } else {
-        out.push(l);
-      }
-    }
-
-    return out.join("\n");
-  }
-
   // Markdown -> HTML -> sanitize -> render LaTeX
   function renderMarkdownAndLatex(containerEl, text){
-    const prepared = wrapLatexConservatively(text || "");
-    const html = window.marked.parse(prepared, { breaks: true, gfm: true });
+    const html = window.marked.parse(text || "", { breaks: true, gfm: true });
 
     const clean = window.DOMPurify.sanitize(html, {
       USE_PROFILES: { html: true },
@@ -647,6 +614,7 @@
       chapterBadge.title = "";
     }
 
+    // Disable new-task button in assessment
     const newBtn = document.getElementById("btnNew");
     if(newBtn){
       newBtn.disabled = (phase === "assessment");
@@ -705,6 +673,7 @@
       };
 
       recognition.onend = () => {
+        // only restart if still dictating
         if(dictating){
           try { recognition.start(); } catch(_) {}
         }
@@ -773,6 +742,7 @@
         return;
       }
 
+      // If assessment: show message + question
       applyServerStateFromQuestionResponse(data);
 
       if(data.message){
@@ -868,10 +838,12 @@
         return;
       }
 
+      // Assessment and transitions can return message + rendered_question
       if(data.message){
         addMessage("bot", data.message);
       }
 
+      // If we got a new rendered question (assessment next step or first learning task)
       if(data.rendered_question){
         applyServerStateFromQuestionResponse(data);
 
@@ -890,7 +862,9 @@
         return;
       }
 
+      // Learning feedback response
       if(data.tutor_feedback || data.next_question || data.hints){
+        // phase might be returned; keep it in sync
         lastPhase = data.phase || lastPhase || "learning";
         setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
 
@@ -899,6 +873,7 @@
         return;
       }
 
+      // Fallback
       addMessage("bot", "Antwort erhalten.");
       setStatus("Bereit.", "ok");
 
@@ -939,6 +914,7 @@
 </script>
 </body>
 </html>
+
 
 
 
