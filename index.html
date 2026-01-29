@@ -571,91 +571,121 @@
     return t;
   }
 
-  function renderMarkdownWithKaTeX(text, topic=null){
-  let formattedText = text || "";
+  function renderMarkdownWithKaTeX(text, topic = null) {
+  let src = text || "";
 
-  // Only vector tasks get extra fixing
-  if(topic === "vektoren"){
-    formattedText = fixVectorLatex(formattedText);
+  // Optional: topic-specific preprocessing (dein fixer für Vektoren)
+  if (topic === "vektoren" && typeof fixVectorLatex === "function") {
+    src = fixVectorLatex(src);
+  }
+  if (typeof wrapLatexEnvironments === "function") {
+    src = wrapLatexEnvironments(src);
   }
 
-  formattedText = wrapLatexEnvironments(formattedText);
+  // --- 1) Math sammeln & durch stabile HTML-Platzhalter ersetzen ---
+  const store = [];
+  let id = 0;
 
-  // 1) Protect math delimiters before markdown
-  // IMPORTANT: tokens must NOT contain underscores (marked can mangle them)
-  const mathPlaceholder = [];
-  let idx = 0;
+  const put = (kind, raw) => {
+    const idx = id++;
+    store[idx] = { kind, raw };
+    // Platzhalter als echtes HTML-Element -> überlebt marked + DOMPurify zuverlässig
+    // (data-* Attribute bleiben normalerweise erhalten)
+    return kind === "block"
+      ? `<div data-math="block" data-math-id="${idx}"></div>`
+      : `<span data-math="inline" data-math-id="${idx}"></span>`;
+  };
 
-  // Block $$...$$
-  formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-    mathPlaceholder.push(match);
-    return `@@MB${idx++}@@`;
+  // Reihenfolge ist wichtig: erst Block-Delimiters, dann Inline
+  // Block: $$...$$
+  src = src.replace(/\$\$([\s\S]*?)\$\$/g, (m) => put("block", m));
+
+  // Block: \[...\]
+  src = src.replace(/\\\[([\s\S]*?)\\\]/g, (m) => put("block", m));
+
+  // Inline: \( ... \)
+  src = src.replace(/\\\(([\s\S]*?)\\\)/g, (m) => put("inline", m));
+
+  // Inline: $...$ (aber nicht $$...$$)
+  src = src.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
+    return pre + put("inline", `$${inner}$`);
   });
 
-  // Block \[...\]
-  formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
-    mathPlaceholder.push(match);
-    return `@@MB${idx++}@@`;
-  });
-
-  // Inline \( ... \)
-  formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
-    mathPlaceholder.push(match);
-    return `@@MI${idx++}@@`;
-  });
-
-  // Inline $...$ (avoid $$)
-  formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
-    const token = `@@MI${idx}@@`;
-    mathPlaceholder.push(`$${inner}$`);
-    idx++;
-    return `${pre}${token}`;
-  });
-
-  // 2) Markdown parse
-  if(typeof marked !== "undefined"){
-    try{
+  // --- 2) Markdown ---
+  let html = src;
+  if (typeof marked !== "undefined") {
+    try {
       marked.setOptions({ breaks: true, gfm: true });
-      formattedText = marked.parse(formattedText);
-    }catch(e){
+      html = marked.parse(html);
+    } catch (e) {
       console.error("Marked Fehler:", e);
     }
   }
 
-  // 3) Sanitize HTML
-  if(typeof DOMPurify !== "undefined"){
-    formattedText = DOMPurify.sanitize(formattedText, { USE_PROFILES: { html: true } });
+  // --- 3) Sanitizen ---
+  if (typeof DOMPurify !== "undefined") {
+    // WICHTIG: data-* Attribute sollen bleiben (Default ist ok),
+    // aber wir erlauben div/span sicherheitshalber explizit.
+    html = DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      ADD_TAGS: ["span", "div"],
+      ADD_ATTR: ["data-math", "data-math-id"]
+    });
   }
 
-  // 4) Restore math placeholders via KaTeX
-  formattedText = formattedText.replace(/@@MB(\d+)@@/g, (match, id) => {
-    const original = mathPlaceholder[Number(id)] || "";
-    const inner = original
-      .replace(/^\$\$/,"").replace(/\$\$$/,"")
-      .replace(/^\\\[/,"").replace(/\\\]$/,"");
+  // --- 4) Math-Platzhalter per DOM ersetzen (robust) ---
+  const root = document.createElement("div");
+  root.innerHTML = html;
 
-    try{
-      return katex.renderToString(inner, { displayMode: true, throwOnError: false });
-    }catch{
-      return original;
+  const nodes = root.querySelectorAll("[data-math][data-math-id]");
+  nodes.forEach((node) => {
+    const idx = Number(node.getAttribute("data-math-id"));
+    const entry = store[idx];
+    if (!entry) return;
+
+    const raw = entry.raw || "";
+    const kind = entry.kind;
+
+    // Inhalt extrahieren (Delimiters entfernen)
+    let inner = raw;
+    inner = inner.replace(/^\$\$/,"").replace(/\$\$$/,"");
+    inner = inner.replace(/^\\\[/,"").replace(/\\\]$/,"");
+    inner = inner.replace(/^\\\(/,"").replace(/\\\)$/,"");
+    inner = inner.replace(/^\$/,"").replace(/\$$/,"");
+
+    // KaTeX rendern
+    let rendered = raw; // fallback
+    try {
+      rendered = katex.renderToString(inner, {
+        displayMode: kind === "block",
+        throwOnError: false
+      });
+    } catch (e) {
+      // fallback: original raw als Text anzeigen
+      rendered = raw;
+    }
+
+    // Node ersetzen (rendered ist HTML)
+    const frag = document.createElement("div");
+    frag.innerHTML = rendered;
+
+    // Inline: nur das erste Child einsetzen, sonst span/div nesting egal
+    if (kind === "inline") {
+      // wenn KaTeX mehrere Nodes macht, nehmen wir alles
+      const spanWrap = document.createElement("span");
+      while (frag.firstChild) spanWrap.appendChild(frag.firstChild);
+      node.replaceWith(spanWrap);
+    } else {
+      // Block: als container einsetzen
+      const blockWrap = document.createElement("div");
+      while (frag.firstChild) blockWrap.appendChild(frag.firstChild);
+      node.replaceWith(blockWrap);
     }
   });
 
-  formattedText = formattedText.replace(/@@MI(\d+)@@/g, (match, id) => {
-    const original = mathPlaceholder[Number(id)] || "";
-    const inner = original
-      .replace(/^\\\(/,"").replace(/\\\)$/,"")
-      .replace(/^\$/,"").replace(/\$$/,"");
-
-    try{
-      return katex.renderToString(inner, { displayMode: false, throwOnError: false });
-    }catch{
-      return original;
-    }
-  });
-
-  return formattedText;
+  return root.innerHTML;
 }
+
 
 
 
