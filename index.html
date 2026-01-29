@@ -574,7 +574,7 @@
   function renderMarkdownWithKaTeX(text, topic=null){
   let formattedText = text || "";
 
-  // Optional: topic-spezifische Fixes
+  // Only vector tasks get extra fixing
   if(topic === "vektoren"){
     formattedText = fixVectorLatex(formattedText);
   }
@@ -582,34 +582,34 @@
   formattedText = wrapLatexEnvironments(formattedText);
 
   // 1) Protect math delimiters before markdown
+  // IMPORTANT: tokens must NOT contain underscores (marked can mangle them)
   const mathPlaceholder = [];
   let idx = 0;
-
-  const blockToken  = (i) => `@@MB${i}@@`; // NO underscores (Markdown-safe)
-  const inlineToken = (i) => `@@MI${i}@@`; // NO underscores (Markdown-safe)
 
   // Block $$...$$
   formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
     mathPlaceholder.push(match);
-    return blockToken(idx++);
+    return `@@MB${idx++}@@`;
   });
 
   // Block \[...\]
   formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
     mathPlaceholder.push(match);
-    return blockToken(idx++);
+    return `@@MB${idx++}@@`;
   });
 
   // Inline \( ... \)
   formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
     mathPlaceholder.push(match);
-    return inlineToken(idx++);
+    return `@@MI${idx++}@@`;
   });
 
   // Inline $...$ (avoid $$)
   formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
+    const token = `@@MI${idx}@@`;
     mathPlaceholder.push(`$${inner}$`);
-    return `${pre}${inlineToken(idx++)}`;
+    idx++;
+    return `${pre}${token}`;
   });
 
   // 2) Markdown parse
@@ -633,6 +633,7 @@
     const inner = original
       .replace(/^\$\$/,"").replace(/\$\$$/,"")
       .replace(/^\\\[/,"").replace(/\\\]$/,"");
+
     try{
       return katex.renderToString(inner, { displayMode: true, throwOnError: false });
     }catch{
@@ -645,6 +646,7 @@
     const inner = original
       .replace(/^\\\(/,"").replace(/\\\)$/,"")
       .replace(/^\$/,"").replace(/\$$/,"");
+
     try{
       return katex.renderToString(inner, { displayMode: false, throwOnError: false });
     }catch{
@@ -654,6 +656,7 @@
 
   return formattedText;
 }
+
 
 
   function addMessage(role, text, small=null, topic=null){
