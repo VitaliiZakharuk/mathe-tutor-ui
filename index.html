@@ -571,120 +571,181 @@
     return t;
   }
 
-  function renderMarkdownWithKaTeX(text, topic = null) {
-  let src = text || "";
+  function renderMarkdownWithKaTeX(text, topic = null){
+  let formattedText = String(text || "");
 
-  // Optional: topic-specific preprocessing (dein fixer für Vektoren)
-  if (topic === "vektoren" && typeof fixVectorLatex === "function") {
-    src = fixVectorLatex(src);
-  }
-  if (typeof wrapLatexEnvironments === "function") {
-    src = wrapLatexEnvironments(src);
-  }
+  // ---------------------------
+  // 0) HARD GUARDS (UI Notbremse)
+  // ---------------------------
 
-  // --- 1) Math sammeln & durch stabile HTML-Platzhalter ersetzen ---
-  const store = [];
-  let id = 0;
-
-  const put = (kind, raw) => {
-    const idx = id++;
-    store[idx] = { kind, raw };
-    // Platzhalter als echtes HTML-Element -> überlebt marked + DOMPurify zuverlässig
-    // (data-* Attribute bleiben normalerweise erhalten)
-    return kind === "block"
-      ? `<div data-math="block" data-math-id="${idx}"></div>`
-      : `<span data-math="inline" data-math-id="${idx}"></span>`;
+  // A) Remove any server-side "math placeholder HTML" that should never reach the UI
+  //    (these are the <div data-math="block" ...> artifacts you saw)
+  const stripMathPlaceholderHTML = (s) => {
+    // remove full tags (block + inline variants)
+    s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*>[\s\S]*?<\/div>/gi, "");
+    s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*>[\s\S]*?<\/span>/gi, "");
+    // remove self-closing placeholders if any
+    s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*\/>/gi, "");
+    s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*\/>/gi, "");
+    return s;
   };
 
-  // Reihenfolge ist wichtig: erst Block-Delimiters, dann Inline
-  // Block: $$...$$
-  src = src.replace(/\$\$([\s\S]*?)\$\$/g, (m) => put("block", m));
+  // B) Detect "already rendered KaTeX HTML" (avoid double-render / double-escaping)
+  const looksLikeRenderedKaTeXHTML = (s) => {
+    return /class\s*=\s*["']katex["']/i.test(s) || /katex-display/i.test(s);
+  };
 
-  // Block: \[...\]
-  src = src.replace(/\\\[([\s\S]*?)\\\]/g, (m) => put("block", m));
+  // C) Global spacing fixes (safe-ish rules)
+  //    - fix "AundB" -> "A und B", "CundD" -> "C und D"
+  //    - fix "AmitB" -> "A mit B"
+  //    - fix "undC(9,6,3)" -> "und C(9,6,3)"
+  //    - fix "C(9,6,3)einen" -> "C(9,6,3) einen"
+  //    - ensure a *point label* letter doesn't touch "(...)" when it is clearly a coordinate tuple
+  const fixSpacingBugs = (s) => {
+    // AundB / CundD / ... (uppercase point labels)
+    s = s.replace(/([A-ZÄÖÜ])\s*und\s*([A-ZÄÖÜ])/g, "$1 und $2");
+    s = s.replace(/([A-ZÄÖÜ])und([A-ZÄÖÜ])/g, "$1 und $2");
 
-  // Inline: \( ... \)
-  src = src.replace(/\\\(([\s\S]*?)\\\)/g, (m) => put("inline", m));
+    // AmitB
+    s = s.replace(/([A-ZÄÖÜ])\s*mit\s*([A-ZÄÖÜ])/g, "$1 mit $2");
+    s = s.replace(/([A-ZÄÖÜ])mit([A-ZÄÖÜ])/g, "$1 mit $2");
 
-  // Inline: $...$ (aber nicht $$...$$)
-  src = src.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
-    return pre + put("inline", `$${inner}$`);
+    // "undC(" / "mitA(" -> "und C(" / "mit A("
+    s = s.replace(/\bund([A-ZÄÖÜ])\s*\(/g, "und $1(");
+    s = s.replace(/\bmit([A-ZÄÖÜ])\s*\(/g, "mit $1(");
+
+    // Make sure point-label letter doesn't touch a coordinate tuple: "C(9,6,3)" -> "C (9,6,3)"
+    // Only if tuple starts with digit or minus => avoids breaking sin(x), f(x), etc.
+    s = s.replace(/\b([A-ZÄÖÜ])\((\s*[-\d])/g, "$1 ($2");
+
+    // Add space AFTER a coordinate tuple if directly followed by a letter: "C(9,6,3)einen" -> "C(9,6,3) einen"
+    s = s.replace(/(\(\s*[-\d][^()]{0,60}\))(?=[A-Za-zÄÖÜäöüß])/g, "$1 ");
+
+    // Collapse accidental double spaces
+    s = s.replace(/[ \t]{2,}/g, " ");
+
+    return s;
+  };
+
+  formattedText = stripMathPlaceholderHTML(formattedText);
+  formattedText = fixSpacingBugs(formattedText);
+
+  // If the backend accidentally sent pre-rendered KaTeX HTML, do NOT run KaTeX again.
+  // We still run Markdown + Sanitizer, but skip the math placeholder pipeline entirely.
+  if(looksLikeRenderedKaTeXHTML(formattedText)){
+    let html = formattedText;
+
+    // Markdown parse (will keep HTML blocks)
+    if(typeof marked !== "undefined"){
+      try{
+        marked.setOptions({ breaks: true, gfm: true });
+        html = marked.parse(html);
+      }catch(e){
+        console.error("Marked Fehler:", e);
+      }
+    }
+
+    // Sanitize (keeps safe HTML, strips dangerous stuff)
+    if(typeof DOMPurify !== "undefined"){
+      html = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+    }
+    return html;
+  }
+
+  // ---------------------------
+  // 1) Optional topic-specific fixups
+  // ---------------------------
+  if(topic === "vektoren"){
+    formattedText = fixVectorLatex(formattedText);
+  }
+
+  // Wrap LaTeX environments into $$...$$ so KaTeX can render them
+  formattedText = wrapLatexEnvironments(formattedText);
+
+  // ---------------------------
+  // 2) Protect math before Markdown
+  // ---------------------------
+  const mathPlaceholder = [];
+  let idx = 0;
+
+  // Block $$...$$
+  formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+    mathPlaceholder.push(match);
+    return `@@MATH_BLOCK_${idx++}@@`;
   });
 
-  // --- 2) Markdown ---
-  let html = src;
-  if (typeof marked !== "undefined") {
-    try {
+  // Block \[...\]
+  formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+    mathPlaceholder.push(match);
+    return `@@MATH_BLOCK_${idx++}@@`;
+  });
+
+  // Inline \( ... \)
+  formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+    mathPlaceholder.push(match);
+    return `@@MATH_INLINE_${idx++}@@`;
+  });
+
+  // Inline $...$ (avoid $$)
+  formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
+    const token = `@@MATH_INLINE_${idx}@@`;
+    mathPlaceholder.push(`$${inner}$`);
+    idx++;
+    return `${pre}${token}`;
+  });
+
+  // ---------------------------
+  // 3) Markdown parse
+  // ---------------------------
+  if(typeof marked !== "undefined"){
+    try{
       marked.setOptions({ breaks: true, gfm: true });
-      html = marked.parse(html);
-    } catch (e) {
+      formattedText = marked.parse(formattedText);
+    }catch(e){
       console.error("Marked Fehler:", e);
     }
   }
 
-  // --- 3) Sanitizen ---
-  if (typeof DOMPurify !== "undefined") {
-    // WICHTIG: data-* Attribute sollen bleiben (Default ist ok),
-    // aber wir erlauben div/span sicherheitshalber explizit.
-    html = DOMPurify.sanitize(html, {
-      USE_PROFILES: { html: true },
-      ADD_TAGS: ["span", "div"],
-      ADD_ATTR: ["data-math", "data-math-id"]
-    });
+  // ---------------------------
+  // 4) Sanitize
+  // ---------------------------
+  if(typeof DOMPurify !== "undefined"){
+    formattedText = DOMPurify.sanitize(formattedText, { USE_PROFILES: { html: true } });
   }
 
-  // --- 4) Math-Platzhalter per DOM ersetzen (robust) ---
-  const root = document.createElement("div");
-  root.innerHTML = html;
-
-  const nodes = root.querySelectorAll("[data-math][data-math-id]");
-  nodes.forEach((node) => {
-    const idx = Number(node.getAttribute("data-math-id"));
-    const entry = store[idx];
-    if (!entry) return;
-
-    const raw = entry.raw || "";
-    const kind = entry.kind;
-
-    // Inhalt extrahieren (Delimiters entfernen)
-    let inner = raw;
-    inner = inner.replace(/^\$\$/,"").replace(/\$\$$/,"");
-    inner = inner.replace(/^\\\[/,"").replace(/\\\]$/,"");
-    inner = inner.replace(/^\\\(/,"").replace(/\\\)$/,"");
-    inner = inner.replace(/^\$/,"").replace(/\$$/,"");
-
-    // KaTeX rendern
-    let rendered = raw; // fallback
-    try {
-      rendered = katex.renderToString(inner, {
-        displayMode: kind === "block",
-        throwOnError: false
-      });
-    } catch (e) {
-      // fallback: original raw als Text anzeigen
-      rendered = raw;
-    }
-
-    // Node ersetzen (rendered ist HTML)
-    const frag = document.createElement("div");
-    frag.innerHTML = rendered;
-
-    // Inline: nur das erste Child einsetzen, sonst span/div nesting egal
-    if (kind === "inline") {
-      // wenn KaTeX mehrere Nodes macht, nehmen wir alles
-      const spanWrap = document.createElement("span");
-      while (frag.firstChild) spanWrap.appendChild(frag.firstChild);
-      node.replaceWith(spanWrap);
-    } else {
-      // Block: als container einsetzen
-      const blockWrap = document.createElement("div");
-      while (frag.firstChild) blockWrap.appendChild(frag.firstChild);
-      node.replaceWith(blockWrap);
+  // ---------------------------
+  // 5) Restore math placeholders via KaTeX
+  // ---------------------------
+  formattedText = formattedText.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, id) => {
+    const original = mathPlaceholder[Number(id)] || "";
+    const inner = original
+      .replace(/^\$\$/,"").replace(/\$\$$/,"")
+      .replace(/^\\\[/,"").replace(/\\\]$/,"");
+    try{
+      return katex.renderToString(inner, { displayMode: true, throwOnError: false });
+    }catch{
+      return original;
     }
   });
 
-  return root.innerHTML;
+  formattedText = formattedText.replace(/@@MATH_INLINE_(\d+)@@/g, (match, id) => {
+    const original = mathPlaceholder[Number(id)] || "";
+    const inner = original
+      .replace(/^\\\(/,"").replace(/\\\)$/,"")
+      .replace(/^\$/,"").replace(/\$$/,"");
+    try{
+      return katex.renderToString(inner, { displayMode: false, throwOnError: false });
+    }catch{
+      return original;
+    }
+  });
+
+  // Final cleanup: in case placeholders slipped through
+  formattedText = stripMathPlaceholderHTML(formattedText);
+
+  return formattedText;
 }
+
 
 
 
