@@ -572,87 +572,89 @@
   }
 
   function renderMarkdownWithKaTeX(text, topic=null){
-    let formattedText = text || "";
+  let formattedText = text || "";
 
-    // Only vector tasks get extra fixing
-    if(topic === "vektoren"){
-      formattedText = fixVectorLatex(formattedText);
-    }
-
-    formattedText = wrapLatexEnvironments(formattedText);
-
-    // 1) Protect math delimiters before markdown
-    const mathPlaceholder = [];
-    let idx = 0;
-
-    // Block $$...$$
-    formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-      mathPlaceholder.push(match);
-      return `@@MATH_BLOCK_${idx++}@@`;
-    });
-
-    // Block \[...\]
-    formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
-      mathPlaceholder.push(match);
-      return `@@MATH_BLOCK_${idx++}@@`;
-    });
-
-    // Inline \( ... \)
-    formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
-      mathPlaceholder.push(match);
-      return `@@MATH_INLINE_${idx++}@@`;
-    });
-
-    // Inline $...$ (avoid $$)
-    formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
-      const token = `@@MATH_INLINE_${idx}@@`;
-      mathPlaceholder.push(`$${inner}$`);
-      idx++;
-      return `${pre}${token}`;
-    });
-
-    // 2) Markdown parse
-    if(typeof marked !== "undefined"){
-      try{
-        marked.setOptions({ breaks: true, gfm: true });
-        formattedText = marked.parse(formattedText);
-      }catch(e){
-        console.error("Marked Fehler:", e);
-      }
-    }
-
-    // 3) Sanitize HTML
-    if(typeof DOMPurify !== "undefined"){
-      formattedText = DOMPurify.sanitize(formattedText, { USE_PROFILES: { html: true } });
-    }
-
-    // 4) Restore math placeholders via KaTeX
-    formattedText = formattedText.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, id) => {
-      const original = mathPlaceholder[Number(id)] || "";
-      const inner = original
-        .replace(/^\$\$/,"").replace(/\$\$$/,"")
-        .replace(/^\\\[/,"").replace(/\\\]$/,"");
-      try{
-        return katex.renderToString(inner, { displayMode: true, throwOnError: false });
-      }catch{
-        return original;
-      }
-    });
-
-    formattedText = formattedText.replace(/@@MATH_INLINE_(\d+)@@/g, (match, id) => {
-      const original = mathPlaceholder[Number(id)] || "";
-      const inner = original
-        .replace(/^\\\(/,"").replace(/\\\)$/,"")
-        .replace(/^\$/,"").replace(/\$$/,"");
-      try{
-        return katex.renderToString(inner, { displayMode: false, throwOnError: false });
-      }catch{
-        return original;
-      }
-    });
-
-    return formattedText;
+  // Optional: topic-spezifische Fixes
+  if(topic === "vektoren"){
+    formattedText = fixVectorLatex(formattedText);
   }
+
+  formattedText = wrapLatexEnvironments(formattedText);
+
+  // 1) Protect math delimiters before markdown
+  const mathPlaceholder = [];
+  let idx = 0;
+
+  const blockToken  = (i) => `@@MB${i}@@`; // NO underscores (Markdown-safe)
+  const inlineToken = (i) => `@@MI${i}@@`; // NO underscores (Markdown-safe)
+
+  // Block $$...$$
+  formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+    mathPlaceholder.push(match);
+    return blockToken(idx++);
+  });
+
+  // Block \[...\]
+  formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+    mathPlaceholder.push(match);
+    return blockToken(idx++);
+  });
+
+  // Inline \( ... \)
+  formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+    mathPlaceholder.push(match);
+    return inlineToken(idx++);
+  });
+
+  // Inline $...$ (avoid $$)
+  formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
+    mathPlaceholder.push(`$${inner}$`);
+    return `${pre}${inlineToken(idx++)}`;
+  });
+
+  // 2) Markdown parse
+  if(typeof marked !== "undefined"){
+    try{
+      marked.setOptions({ breaks: true, gfm: true });
+      formattedText = marked.parse(formattedText);
+    }catch(e){
+      console.error("Marked Fehler:", e);
+    }
+  }
+
+  // 3) Sanitize HTML
+  if(typeof DOMPurify !== "undefined"){
+    formattedText = DOMPurify.sanitize(formattedText, { USE_PROFILES: { html: true } });
+  }
+
+  // 4) Restore math placeholders via KaTeX
+  formattedText = formattedText.replace(/@@MB(\d+)@@/g, (match, id) => {
+    const original = mathPlaceholder[Number(id)] || "";
+    const inner = original
+      .replace(/^\$\$/,"").replace(/\$\$$/,"")
+      .replace(/^\\\[/,"").replace(/\\\]$/,"");
+    try{
+      return katex.renderToString(inner, { displayMode: true, throwOnError: false });
+    }catch{
+      return original;
+    }
+  });
+
+  formattedText = formattedText.replace(/@@MI(\d+)@@/g, (match, id) => {
+    const original = mathPlaceholder[Number(id)] || "";
+    const inner = original
+      .replace(/^\\\(/,"").replace(/\\\)$/,"")
+      .replace(/^\$/,"").replace(/\$$/,"");
+    try{
+      return katex.renderToString(inner, { displayMode: false, throwOnError: false });
+    }catch{
+      return original;
+    }
+  });
+
+  return formattedText;
+}
+
 
   function addMessage(role, text, small=null, topic=null){
     const wrap = document.createElement("div");
