@@ -44,8 +44,6 @@
                   var(--bg);
       color:var(--text);
     }
-
-    /* LAYOUT: Top + Settings always visible; Chat scrolls internally */
     .app{
       max-width: 980px;
       margin: 0 auto;
@@ -67,15 +65,10 @@
       background: rgba(15,23,42,.75);
       backdrop-filter: blur(10px);
       box-shadow: var(--shadow);
-      position: sticky;
-      top: 12px;
-      z-index: 50;
     }
     .title{display:flex; flex-direction:column; gap:2px;}
     .title h1{font-size:16px; margin:0; letter-spacing:.2px;}
-    /* Subtitle hidden per request */
-    .title p{display:none;}
-
+    .title p{margin:0; font-size:12px; color:var(--muted);}
     .pill{
       display:inline-flex; align-items:center; gap:8px;
       padding:8px 10px;
@@ -132,9 +125,6 @@
       background: rgba(15,23,42,.60);
       box-shadow: var(--shadow);
       overflow:hidden;
-      position: sticky;
-      top: 86px;
-      z-index: 40;
     }
     .settingsHead{
       display:flex; align-items:center; justify-content:space-between;
@@ -168,8 +158,7 @@
     input[type="text"]::placeholder{color: rgba(148,163,184,.6)}
 
     .chat{
-      flex: 1 1 auto;
-      min-height: 0; /* allows internal scrolling areas */
+      flex:1;
       border:1px solid var(--border);
       border-radius: var(--radius);
       background: rgba(15,23,42,.55);
@@ -178,9 +167,28 @@
       display:flex;
       flex-direction:column;
     }
-
-    /* Hide the whole meta header (Question-ID/Topic/Phase/...) per request */
-    .chatHeader{ display:none; }
+    .chatHeader{
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid var(--border);
+      background: rgba(17,28,58,.45);
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      color: var(--muted);
+      background: rgba(17,28,58,.35);
+    }
+    .badge.strong{color: var(--text);}
+    .badge.ok{border-color: rgba(34,197,94,.35);}
+    .badge.warn{border-color: rgba(245,158,11,.35);}
+    .badge.bad{border-color: rgba(239,68,68,.35);}
 
     .messages{
       padding: 14px;
@@ -212,9 +220,12 @@
       border: 1px solid rgba(255,255,255,.14);
       border-top-right-radius: 10px;
     }
-
-    /* Hide the per-message meta line (ID/Topic/Phase/...) */
-    .bubble .small{ display:none; }
+    .bubble .small{
+      display:block;
+      margin-top:8px;
+      font-size:12px;
+      color: rgba(148,163,184,.95);
+    }
 
     .bubble .md{white-space:normal}
     .bubble .md p{margin:0 0 10px}
@@ -229,38 +240,16 @@
       font-size:12px;
       color: var(--muted);
       padding: 0 14px 12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 10px;
-    }
-    .statusLeft{
-      display:flex;
-      align-items:center;
-      gap: 8px;
-      min-width: 0;
     }
     .statusDot{
       display:inline-block;
-      width:8px;height:8px;border-radius:99px;
+      width:8px;height:8px;border-radius:99px;margin-right:8px;
       background: rgba(148,163,184,.6);
       vertical-align:middle;
-      flex: 0 0 auto;
     }
     .statusDot.ok{background: var(--ok)}
     .statusDot.bad{background: var(--bad)}
     .statusDot.warn{background: var(--warn)}
-    #statusLine{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-
-    .feedbackLink{
-      font-size:12px;
-      color: rgba(148,163,184,.95);
-      text-decoration: underline;
-      cursor: pointer;
-      user-select:none;
-      flex: 0 0 auto;
-    }
-    .feedbackLink:hover{filter:brightness(1.08)}
 
     .composer{
       border-top:1px solid var(--border);
@@ -287,6 +276,37 @@
       line-height: 1.4;
     }
     textarea::-webkit-resizer{display:none;}
+
+    details{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(15,23,42,.55);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    details summary{
+      cursor:pointer;
+      padding: 12px 14px;
+      color:var(--muted);
+      user-select:none;
+    }
+    pre#raw{
+      margin:0;
+      padding: 12px 14px;
+      overflow:auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      background: rgba(2,6,23,.7);
+      color: #cbd5e1;
+      border-top:1px solid var(--border);
+    }
+
+    .metaRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
   </style>
 </head>
 
@@ -322,10 +342,11 @@
             <input id="apiUrl" type="text" value="https://90gv8ggvod.execute-api.eu-north-1.amazonaws.com/chat" />
           </div>
           <div>
-            <label for="topic">Thema</label>
-            <!-- Only Complex Numbers, fixed per request -->
+            <label for="topic">Thema (optional)</label>
             <select id="topic">
-              <option value="komplexe_zahlen" selected>Komplexe Zahlen</option>
+              <option value="">Zufällig</option>
+              <option value="vektoren">Vektoren</option>
+              <option value="komplexe_zahlen">Komplexe Zahlen</option>
             </select>
           </div>
         </div>
@@ -333,7 +354,7 @@
         <div class="grid cols3">
           <div>
             <label for="baseId">Basis-Aufgabe-ID (optional)</label>
-            <input id="baseId" type="text" placeholder="z. B. K7_22" />
+            <input id="baseId" type="text" placeholder="z. B. V5_05 oder K7_22" />
           </div>
           <div>
             <label for="studentId">Student-ID (Browser)</label>
@@ -366,15 +387,7 @@
       </div>
 
       <div class="messages" id="messages"></div>
-
-      <!-- Status + Feedback link (replaces Debug) -->
-      <div class="statusLine">
-        <div class="statusLeft">
-          <span class="statusDot" id="dot"></span>
-          <span id="statusLine">Bereit.</span>
-        </div>
-        <span class="feedbackLink" onclick="openFeedback()">Feedback geben</span>
-      </div>
+      <div class="statusLine"><span class="statusDot" id="dot"></span><span id="statusLine">Bereit.</span></div>
 
       <div class="composer">
         <button class="iconBtn secondary" id="btnMic" type="button"
@@ -395,6 +408,11 @@
         </button>
       </div>
     </div>
+
+    <details>
+      <summary>Debug: Roh-JSON anzeigen</summary>
+      <pre id="raw">—</pre>
+    </details>
 
   </div>
 
@@ -434,6 +452,10 @@
     return url;
   }
 
+  function setRaw(obj){
+    document.getElementById("raw").textContent = JSON.stringify(obj, null, 2);
+  }
+
   function setStatus(text, state=null){
     const dot = document.getElementById("dot");
     const line = document.getElementById("statusLine");
@@ -456,25 +478,12 @@
     if(newBtn) newBtn.disabled = busy || (lastPhase === "assessment");
     const mic = document.getElementById("btnMic");
     if(mic) mic.disabled = busy;
-  }
-
-  function openFeedback(){
-    // Simple: opens mail client with prefilled subject/body
-    const subject = encodeURIComponent("Feedback Mathe-Tutor");
-    const body = encodeURIComponent(
-      "Beschreibe bitte kurz dein Feedback:\n\n" +
-      "- Was ist passiert?\n" +
-      "- Welche Aufgabe/ID (falls bekannt)?\n" +
-      "- Browser/Device?\n\n" +
-      "Danke!"
-    );
-    // Replace with your real address if desired
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    document.getElementById("conn").textContent = busy ? "arbeitet…" : "bereit";
   }
 
   // --------- Robust Math + Markdown pipeline (KaTeX renderToString) ----------
 
-  // Normalize broken / nested math delimiters (prevents "$$" artifacts)
+  // FIX #1: Normalize broken / nested math delimiters (prevents "$$" artifacts)
   function normalizeMathDelimiters(s){
     if(!s) return "";
 
@@ -499,6 +508,88 @@
     return s;
   }
 
+  function fixVectorLatex(text){
+    let t = text || "";
+
+    // 0) Normalize common "T" variants
+    t = t.replace(/ᵀ/g, "^{\\top}");      // unicode superscript T -> LaTeX
+    t = t.replace(/\\\^/g, "^");          // "\^" -> "^" (PDF export artifacts)
+
+    // Fix nested delimiters like \(\( ... \)\)
+    t = t.replace(/\\\(\s*\\\(/g, "\\(");
+    t = t.replace(/\\\)\s*\\\)/g, "\\)");
+
+    // 1) Broken $$ (odd count) -> remove (otherwise you see "$$" as plain text)
+    const dbl = (t.match(/\$\$/g) || []).length;
+    if (dbl % 2 === 1) t = t.replace(/\$\$/g, "");
+
+    // 2) Normalize plain ^T -> ^{\top}
+    t = t.replace(/\^T\b/g, "^{\\top}");
+
+    // 3) Wrap naked tuples with transpose into inline math:
+    //    (7,3,6)^{\top}  -> \( (7,3,6)^{\top} \)
+    // Only when it is NOT already inside \(...\) or $$...$$ (approx. guard by "pre char")
+    t = t.replace(
+      /(^|[^\w\\])\(([^()\n]{1,240})\)\s*\^\{\s*\\top\s*\}/g,
+      (m, pre, inside) => `${pre}\\((${inside})^{\\top}\\)`
+    );
+
+    // 4) Wrap typical definition lines like:
+    //    g: (x,y,z)^{\top} = (...)^{\top} + t(...)^{\top}
+    //    E: 5x - y + 3z = 0
+    // Wrap ONLY the RHS after ":" / "=" for single-letter labels.
+    const looksMathy = (s) => {
+      if(!s) return false;
+      return (
+        /\\(mathbb|mathbf|vec|cdot|times|frac|sqrt|left|right)\b/.test(s) ||
+        /\^\{\\top\}/.test(s) ||
+        /[_^]/.test(s) ||
+        /[=]/.test(s) ||
+        /\([^\)]*,[^\)]*\)/.test(s)
+      );
+    };
+
+    const lines = t.split("\n");
+    const out = [];
+
+    for (let line of lines){
+      const l = line || "";
+
+      // If line already has math delimiters, keep it as-is
+      if(/(\$\$|\\\[|\\\(|\\\)|\\\])/.test(l)){
+        out.push(l);
+        continue;
+      }
+
+      // Case A: "g: ...." or "E: ...."
+      const mColon = l.match(/^(\s*[A-Za-z]\s*:\s*)(.*)$/);
+      if(mColon && looksMathy(mColon[2])){
+        out.push(mColon[1] + "\\(" + mColon[2].trim() + "\\)");
+        continue;
+      }
+
+      // Case B: "g = ...." (rare)
+      const mEq = l.match(/^(\s*[A-Za-z]\s*=\s*)(.*)$/);
+      if(mEq && looksMathy(mEq[2])){
+        out.push(mEq[1] + "\\(" + mEq[2].trim() + "\\)");
+        continue;
+      }
+
+      // Case C: a/b vector definitions inside text:
+      // "a = (1,0,1)^{\top}" -> "\(a=(1,0,1)^{\top}\)"
+      const replaced = l.replace(
+        /(^|[\s,;:])([a-zA-Z])\s*=\s*\(([^()\n]{1,240})\)\s*\^\{\s*\\top\s*\}/g,
+        (mm, pre, v, inside) => `${pre}\\(${v}=(${inside})^{\\top}\\)`
+      );
+
+      out.push(replaced);
+    }
+
+    return out.join("\n");
+  }
+
+  // FIX #2: Do NOT wrap environments in $$ ... $$ (causes nested $$ artifacts).
+  // Wrap only when not already inside math, using \[ ... \] which KaTeX handles cleanly.
   function wrapLatexEnvironments(text){
     let t = text || "";
     t = t.replace(/\\begin\{([a-zA-Z*]+)\}([\s\S]*?)\\end\{\1\}/g, (m, env, body, offset, full) => {
@@ -520,21 +611,28 @@
   function renderMarkdownWithKaTeX(text, topic = null){
     let formattedText = String(text || "");
 
+    // FIX #1 APPLY: Normalize broken / nested delimiters early (prevents "$$" artifacts)
     formattedText = normalizeMathDelimiters(formattedText);
 
+    // ---------------------------
+    // 0) Strip "math placeholder" artifacts (raw + HTML-escaped)
+    // ---------------------------
     function stripMathPlaceholderArtifacts(s){
       if(!s) return "";
 
+      // A) RAW placeholder tags
       s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*>[\s\S]*?<\/div>/gi, "");
       s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*>[\s\S]*?<\/span>/gi, "");
       s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*\/\s*>/gi, "");
       s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*\/\s*>/gi, "");
 
+      // B) HTML-ESCAPED placeholder tags: &lt;div ...&gt; ... &lt;/div&gt;
       s = s.replace(/&lt;div\b[^&]*\bdata-math\b[^&]*&gt;[\s\S]*?&lt;\/div&gt;/gi, "");
       s = s.replace(/&lt;span\b[^&]*\bdata-math\b[^&]*&gt;[\s\S]*?&lt;\/span&gt;/gi, "");
       s = s.replace(/&lt;div\b[^&]*\bdata-math\b[^&]*\/&gt;/gi, "");
       s = s.replace(/&lt;span\b[^&]*\bdata-math\b[^&]*\/&gt;/gi, "");
 
+      // C) Some pipelines produce empty placeholder pairs without closing tags (rare) -> remove starts
       s = s.replace(/&lt;div\b[^&]*\bdata-math\b[^&]*&gt;/gi, "");
       s = s.replace(/&lt;\/div&gt;/gi, "");
       s = s.replace(/&lt;span\b[^&]*\bdata-math\b[^&]*&gt;/gi, "");
@@ -543,25 +641,35 @@
       return s;
     }
 
+    // Detect already-rendered KaTeX HTML: avoid double-render
     function looksLikeRenderedKaTeXHTML(s){
       return /class\s*=\s*["']katex["']/i.test(s) || /katex-display/i.test(s);
     }
 
+    // Spacing fixups (your “no letter touches parentheses” + AundB/AmitB)
     function fixSpacingBugs(s){
       s = s.replace(/([A-ZÄÖÜ])und([A-ZÄÖÜ])/g, "$1 und $2");
       s = s.replace(/([A-ZÄÖÜ])mit([A-ZÄÖÜ])/g, "$1 mit $2");
       s = s.replace(/\bund([A-ZÄÖÜ])\s*\(/g, "und $1(");
       s = s.replace(/\bmit([A-ZÄÖÜ])\s*\(/g, "mit $1(");
 
+      // "C(9,6,3)" -> "C (9,6,3)" only for coordinate-like tuples (start digit/minus)
       s = s.replace(/\b([A-ZÄÖÜ])\((\s*[-\d])/g, "$1 ($2");
+
+      // "(9,6,3)einen" -> "(9,6,3) einen"
       s = s.replace(/(\(\s*[-\d][^()]{0,80}\))(?=[A-Za-zÄÖÜäöüß])/g, "$1 ");
+
+      // collapse multi spaces
       s = s.replace(/[ \t]{2,}/g, " ");
       return s;
     }
 
+    // Always strip placeholders early
     formattedText = stripMathPlaceholderArtifacts(formattedText);
     formattedText = fixSpacingBugs(formattedText);
 
+    // If KaTeX HTML is already present, do NOT run KaTeX again.
+    // Still sanitize, but also strip placeholders after markdown.
     if(looksLikeRenderedKaTeXHTML(formattedText)){
       let html = formattedText;
 
@@ -582,26 +690,40 @@
       return html;
     }
 
+    // ---------------------------
+    // 1) Topic-specific fixups
+    // ---------------------------
+    if(topic === "vektoren"){
+      formattedText = fixVectorLatex(formattedText);
+    }
+
     formattedText = wrapLatexEnvironments(formattedText);
 
+    // ---------------------------
+    // 2) Protect math delimiters before Markdown
+    // ---------------------------
     const mathPlaceholder = [];
     let idx = 0;
 
+    // Block $$...$$
     formattedText = formattedText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
       mathPlaceholder.push(match);
       return `@@MATH_BLOCK_${idx++}@@`;
     });
 
+    // Block \[...\]
     formattedText = formattedText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
       mathPlaceholder.push(match);
       return `@@MATH_BLOCK_${idx++}@@`;
     });
 
+    // Inline \( ... \)
     formattedText = formattedText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
       mathPlaceholder.push(match);
       return `@@MATH_INLINE_${idx++}@@`;
     });
 
+    // Inline $...$ (avoid $$)
     formattedText = formattedText.replace(/(^|[^$])\$(?!\s)([^$\n]+?)\$(?!\$)/g, (m, pre, inner) => {
       const token = `@@MATH_INLINE_${idx}@@`;
       mathPlaceholder.push(`$${inner}$`);
@@ -609,6 +731,9 @@
       return `${pre}${token}`;
     });
 
+    // ---------------------------
+    // 3) Markdown parse
+    // ---------------------------
     if(typeof marked !== "undefined"){
       try{
         marked.setOptions({ breaks: true, gfm: true });
@@ -618,10 +743,16 @@
       }
     }
 
+    // ---------------------------
+    // 4) Sanitize
+    // ---------------------------
     if(typeof DOMPurify !== "undefined"){
       formattedText = DOMPurify.sanitize(formattedText, { USE_PROFILES: { html: true } });
     }
 
+    // ---------------------------
+    // 5) Restore math placeholders via KaTeX
+    // ---------------------------
     formattedText = formattedText.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, id) => {
       const original = mathPlaceholder[Number(id)] || "";
       const inner = original
@@ -646,7 +777,9 @@
       }
     });
 
+    // Final cleanup (raw + escaped placeholders may appear after Marked/Sanitize)
     formattedText = stripMathPlaceholderArtifacts(formattedText);
+
     return formattedText;
   }
 
@@ -668,7 +801,12 @@
 
     b.appendChild(content);
 
-    // small/meta line intentionally hidden by CSS (and we also stop passing it below)
+    if(small){
+      const s = document.createElement("span");
+      s.className = "small";
+      s.textContent = small;
+      b.appendChild(s);
+    }
 
     wrap.appendChild(b);
     document.getElementById("messages").appendChild(wrap);
@@ -688,6 +826,54 @@
       await new Promise(r => setTimeout(r, 30));
     }
   }
+
+  function badgeClassForDifficulty(d){
+    if(d === 2) return "ok";
+    if(d === 3) return "warn";
+    if(d >= 4) return "bad";
+    return "";
+  }
+
+  function setHeader(qid, topic, phase, baseId, taskMeta){
+    document.getElementById("qid").textContent = qid || "—";
+    document.getElementById("qtopic").textContent = topic || "—";
+    document.getElementById("phase").textContent = phase || "—";
+    document.getElementById("baseqid").textContent = baseId || "—";
+
+    const diffEl = document.getElementById("diff");
+    const chapEl = document.getElementById("chapter");
+    const diffBadge = document.getElementById("diffBadge");
+    const chapterBadge = document.getElementById("chapterBadge");
+
+    if(taskMeta && typeof taskMeta === "object"){
+      const d = taskMeta.difficulty ?? "—";
+      const c = taskMeta.chapter ?? "—";
+      diffEl.textContent = d;
+      chapEl.textContent = c;
+
+      diffBadge.className = "badge " + badgeClassForDifficulty(Number(d));
+      chapterBadge.className = "badge";
+    } else {
+      diffEl.textContent = "—";
+      chapEl.textContent = "—";
+      diffBadge.className = "badge";
+      chapterBadge.className = "badge";
+    }
+
+    const newBtn = document.getElementById("btnNew");
+    if(newBtn){
+      newBtn.disabled = (phase === "assessment");
+      newBtn.title = (phase === "assessment") ? "Im Assessment deaktiviert" : "Manuell neue Aufgabe holen (nur im Lernmodus)";
+    }
+  }
+
+  // --------- Start lines ----------
+  const START_LINES = [
+    "Los geht’s — wir bringen Struktur in Mathe, Schritt für Schritt.",
+    "Kurzer Check-in, dann starten wir direkt mit passenden Aufgaben.",
+    "Heute wird’s sauber: erst einschätzen, dann gezielt trainieren.",
+    "Wir machen’s effizient: ein paar Fragen, dann die richtigen Aufgaben."
+  ];
 
   // --------- Dictation ----------
   let recognition = null;
@@ -763,11 +949,13 @@
     lastPhase = data.phase || lastPhase || "";
     lastBaseQuestionId = data.base_question_id || "";
     lastTaskMeta = data.task_meta || null;
+
+    setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
   }
 
   async function loadQuestion(manual=false){
     const api = normalizeApiUrl(document.getElementById("apiUrl").value);
-    const topic = "komplexe_zahlen"; // FORCE complex numbers only
+    const topic = document.getElementById("topic").value || undefined;
     const baseId = (document.getElementById("baseId").value || "").trim() || undefined;
 
     if(!api){
@@ -778,7 +966,8 @@
     setBusy(true);
     setStatus(manual ? "Lade…" : "Starte…", null);
 
-    const payload = { mode: "next_question", student_id: studentId, topic };
+    const payload = { mode: "next_question", student_id: studentId };
+    if(topic) payload.topic = topic;
     if(baseId) payload.base_question_id = baseId;
 
     try{
@@ -789,6 +978,7 @@
       });
 
       const data = await res.json().catch(() => ({}));
+      setRaw(data);
 
       if(!res.ok){
         setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
@@ -799,14 +989,24 @@
       applyServerStateFromQuestionResponse(data);
 
       if(data.message){
-        addMessage("bot", data.message, null, lastTopic);
+        addMessage("bot", data.message);
       }
 
       if(lastQuestion){
-        // No meta line shown anymore
-        addMessage("bot", lastQuestion, null, lastTopic);
+        let meta = `ID: \`${lastQuestionId || "—"}\` · Topic: \`${lastTopic || "—"}\` · Phase: \`${lastPhase || "—"}\``;
+        if(lastBaseQuestionId) meta += ` · Katalog: \`${lastBaseQuestionId}\``;
+        if(lastTaskMeta && typeof lastTaskMeta === "object"){
+          const d = lastTaskMeta.difficulty;
+          const c = lastTaskMeta.chapter;
+          if(d != null) meta += ` · Diff: \`${d}\``;
+          if(c != null) meta += ` · Kap: \`${c}\``;
+          if(lastTaskMeta.title) meta += ` · ${String(lastTaskMeta.title)}`;
+        }
+
+        // IMPORTANT: pass topic to renderer (vector fixes only on topic=vektoren)
+        addMessage("bot", lastQuestion, meta, lastTopic);
       } else {
-        addMessage("bot", "—", null, lastTopic);
+        addMessage("bot", "—");
       }
 
       setStatus("Bereit.", "ok");
@@ -830,7 +1030,7 @@
     if(nq){
       botText += "\n\n**Nächste Frage:**\n" + nq;
     }
-    addMessage("bot", botText, null, lastTopic);
+    addMessage("bot", botText);
   }
 
   async function submitAnswer(){
@@ -862,7 +1062,7 @@
       student_id: studentId,
       last_question: lastQuestion,
       student_answer: answer,
-      topic: "komplexe_zahlen",
+      topic: lastTopic || "unknown",
       question_id: lastQuestionId,
       base_question_id: lastBaseQuestionId || undefined
     };
@@ -875,6 +1075,7 @@
       });
 
       const data = await res.json().catch(() => ({}));
+      setRaw(data);
 
       if(!res.ok){
         setStatus((data && data.error) ? data.error : ("HTTP " + res.status), "bad");
@@ -883,24 +1084,37 @@
       }
 
       if(data.message){
-        addMessage("bot", data.message, null, lastTopic);
+        addMessage("bot", data.message);
       }
 
       if(data.rendered_question){
         applyServerStateFromQuestionResponse(data);
-        addMessage("bot", data.rendered_question, null, data.topic || lastTopic);
+
+        let meta = `ID: \`${data.question_id || "—"}\` · Topic: \`${data.topic || "—"}\` · Phase: \`${data.phase || "—"}\``;
+        if(data.base_question_id) meta += ` · Katalog: \`${data.base_question_id}\``;
+        if(data.task_meta){
+          const d = data.task_meta.difficulty;
+          const c = data.task_meta.chapter;
+          if(d != null) meta += ` · Diff: \`${d}\``;
+          if(c != null) meta += ` · Kap: \`${c}\``;
+          if(data.task_meta.title) meta += ` · ${String(data.task_meta.title)}`;
+        }
+
+        addMessage("bot", data.rendered_question, meta, data.topic || lastTopic);
         setStatus("Bereit.", "ok");
         return;
       }
 
       if(data.tutor_feedback || data.next_question || data.hints){
         lastPhase = data.phase || lastPhase || "learning";
+        setHeader(lastQuestionId, lastTopic, lastPhase, lastBaseQuestionId, lastTaskMeta);
+
         renderTutorFeedbackBlock(data);
         setStatus("Bereit.", "ok");
         return;
       }
 
-      addMessage("bot", "Antwort erhalten.", null, lastTopic);
+      addMessage("bot", "Antwort erhalten.");
       setStatus("Bereit.", "ok");
 
     } catch(e){
@@ -931,11 +1145,13 @@
   (async function init(){
     await waitForLibs();
 
-    addMessage("bot", "Los geht’s — wir starten direkt mit Komplexen Zahlen.");
-    setStatus(libsReady() ? "Bereit. (Markdown + KaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
+    const start = START_LINES[Math.floor(Math.random() * START_LINES.length)];
+    addMessage("bot", start);
 
+    setStatus(libsReady() ? "Bereit. (Markdown + KaTeX aktiv)" : "Bereit. (Renderer lädt…)", libsReady() ? "ok" : "warn");
     await loadQuestion(false);
   })();
 </script>
 </body>
 </html>
+
