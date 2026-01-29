@@ -575,67 +575,65 @@
   let formattedText = String(text || "");
 
   // ---------------------------
-  // 0) HARD GUARDS (UI Notbremse)
+  // 0) Strip "math placeholder" artifacts (raw + HTML-escaped)
   // ---------------------------
+  function stripMathPlaceholderArtifacts(s){
+    if(!s) return "";
 
-  // A) Remove any server-side "math placeholder HTML" that should never reach the UI
-  //    (these are the <div data-math="block" ...> artifacts you saw)
-  const stripMathPlaceholderHTML = (s) => {
-    // remove full tags (block + inline variants)
+    // A) RAW placeholder tags
     s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*>[\s\S]*?<\/div>/gi, "");
     s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*>[\s\S]*?<\/span>/gi, "");
-    // remove self-closing placeholders if any
-    s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*\/>/gi, "");
-    s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*\/>/gi, "");
+    s = s.replace(/<div\b[^>]*\bdata-math\b[^>]*\/\s*>/gi, "");
+    s = s.replace(/<span\b[^>]*\bdata-math\b[^>]*\/\s*>/gi, "");
+
+    // B) HTML-ESCAPED placeholder tags: &lt;div ...&gt; ... &lt;/div&gt;
+    // This is exactly what you see in the screenshot.
+    s = s.replace(/&lt;div\b[^&]*\bdata-math\b[^&]*&gt;[\s\S]*?&lt;\/div&gt;/gi, "");
+    s = s.replace(/&lt;span\b[^&]*\bdata-math\b[^&]*&gt;[\s\S]*?&lt;\/span&gt;/gi, "");
+    s = s.replace(/&lt;div\b[^&]*\bdata-math\b[^&]*\/&gt;/gi, "");
+    s = s.replace(/&lt;span\b[^&]*\bdata-math\b[^&]*\/&gt;/gi, "");
+
+    // C) Some pipelines produce empty placeholder pairs without closing tags (rare) -> remove starts
+    s = s.replace(/&lt;div\b[^&]*\bdata-math\b[^&]*&gt;/gi, "");
+    s = s.replace(/&lt;\/div&gt;/gi, "");
+    s = s.replace(/&lt;span\b[^&]*\bdata-math\b[^&]*&gt;/gi, "");
+    s = s.replace(/&lt;\/span&gt;/gi, "");
+
     return s;
-  };
+  }
 
-  // B) Detect "already rendered KaTeX HTML" (avoid double-render / double-escaping)
-  const looksLikeRenderedKaTeXHTML = (s) => {
+  // Detect already-rendered KaTeX HTML: avoid double-render
+  function looksLikeRenderedKaTeXHTML(s){
     return /class\s*=\s*["']katex["']/i.test(s) || /katex-display/i.test(s);
-  };
+  }
 
-  // C) Global spacing fixes (safe-ish rules)
-  //    - fix "AundB" -> "A und B", "CundD" -> "C und D"
-  //    - fix "AmitB" -> "A mit B"
-  //    - fix "undC(9,6,3)" -> "und C(9,6,3)"
-  //    - fix "C(9,6,3)einen" -> "C(9,6,3) einen"
-  //    - ensure a *point label* letter doesn't touch "(...)" when it is clearly a coordinate tuple
-  const fixSpacingBugs = (s) => {
-    // AundB / CundD / ... (uppercase point labels)
-    s = s.replace(/([A-ZÄÖÜ])\s*und\s*([A-ZÄÖÜ])/g, "$1 und $2");
+  // Spacing fixups (your “no letter touches parentheses” + AundB/AmitB)
+  function fixSpacingBugs(s){
     s = s.replace(/([A-ZÄÖÜ])und([A-ZÄÖÜ])/g, "$1 und $2");
-
-    // AmitB
-    s = s.replace(/([A-ZÄÖÜ])\s*mit\s*([A-ZÄÖÜ])/g, "$1 mit $2");
     s = s.replace(/([A-ZÄÖÜ])mit([A-ZÄÖÜ])/g, "$1 mit $2");
-
-    // "undC(" / "mitA(" -> "und C(" / "mit A("
     s = s.replace(/\bund([A-ZÄÖÜ])\s*\(/g, "und $1(");
     s = s.replace(/\bmit([A-ZÄÖÜ])\s*\(/g, "mit $1(");
 
-    // Make sure point-label letter doesn't touch a coordinate tuple: "C(9,6,3)" -> "C (9,6,3)"
-    // Only if tuple starts with digit or minus => avoids breaking sin(x), f(x), etc.
+    // "C(9,6,3)" -> "C (9,6,3)" only for coordinate-like tuples (start digit/minus)
     s = s.replace(/\b([A-ZÄÖÜ])\((\s*[-\d])/g, "$1 ($2");
 
-    // Add space AFTER a coordinate tuple if directly followed by a letter: "C(9,6,3)einen" -> "C(9,6,3) einen"
-    s = s.replace(/(\(\s*[-\d][^()]{0,60}\))(?=[A-Za-zÄÖÜäöüß])/g, "$1 ");
+    // "(9,6,3)einen" -> "(9,6,3) einen"
+    s = s.replace(/(\(\s*[-\d][^()]{0,80}\))(?=[A-Za-zÄÖÜäöüß])/g, "$1 ");
 
-    // Collapse accidental double spaces
+    // collapse multi spaces
     s = s.replace(/[ \t]{2,}/g, " ");
-
     return s;
-  };
+  }
 
-  formattedText = stripMathPlaceholderHTML(formattedText);
+  // Always strip placeholders early
+  formattedText = stripMathPlaceholderArtifacts(formattedText);
   formattedText = fixSpacingBugs(formattedText);
 
-  // If the backend accidentally sent pre-rendered KaTeX HTML, do NOT run KaTeX again.
-  // We still run Markdown + Sanitizer, but skip the math placeholder pipeline entirely.
+  // If KaTeX HTML is already present, do NOT run KaTeX again.
+  // Still sanitize, but also strip placeholders after markdown.
   if(looksLikeRenderedKaTeXHTML(formattedText)){
     let html = formattedText;
 
-    // Markdown parse (will keep HTML blocks)
     if(typeof marked !== "undefined"){
       try{
         marked.setOptions({ breaks: true, gfm: true });
@@ -645,25 +643,25 @@
       }
     }
 
-    // Sanitize (keeps safe HTML, strips dangerous stuff)
     if(typeof DOMPurify !== "undefined"){
       html = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
     }
+
+    html = stripMathPlaceholderArtifacts(html);
     return html;
   }
 
   // ---------------------------
-  // 1) Optional topic-specific fixups
+  // 1) Topic-specific fixups
   // ---------------------------
   if(topic === "vektoren"){
     formattedText = fixVectorLatex(formattedText);
   }
 
-  // Wrap LaTeX environments into $$...$$ so KaTeX can render them
   formattedText = wrapLatexEnvironments(formattedText);
 
   // ---------------------------
-  // 2) Protect math before Markdown
+  // 2) Protect math delimiters before Markdown
   // ---------------------------
   const mathPlaceholder = [];
   let idx = 0;
@@ -740,13 +738,11 @@
     }
   });
 
-  // Final cleanup: in case placeholders slipped through
-  formattedText = stripMathPlaceholderHTML(formattedText);
+  // Final cleanup (raw + escaped placeholders may appear after Marked/Sanitize)
+  formattedText = stripMathPlaceholderArtifacts(formattedText);
 
   return formattedText;
 }
-
-
 
 
 
